@@ -37,7 +37,8 @@ public class DatabaseManager {
 
     private HandlerFactory handlersFactory;
 
-    private DatabaseManager() {}
+    private DatabaseManager() {
+    }
 
     public static void initialize() {
         INSTANCE = new DatabaseManager();
@@ -47,19 +48,19 @@ public class DatabaseManager {
                 .databasesNames(Stream.of("_Users", "Books", "Movies").collect(Collectors.toList()))
                 .indexesIdentifiers(Stream.of("_Users:username").collect(Collectors.toList()))
                 .nodeId(System.getenv("NODE_ID") != null ? System.getenv("NODE_ID") : "node_1") // assumed to be a
-                .savePath("C:\\Users\\ammar\\Desktop\\Data")
-                .dataDirectory("C:\\Users\\ammar\\Desktop\\Data\\data")
-                .indexesDirectory("C:\\Users\\ammar\\Desktop\\Data\\index")
+                .savePath("db/")
+                .dataDirectory("db/data")
+                .indexesDirectory("db/index")
                 .build();
 
         File savePath = Paths.get(INSTANCE.metaData.getSavePath()).toFile();
-        if(!savePath.exists()) {
+        if (!savePath.exists()) {
             savePath.mkdirs();
         }
 
         List<Node> nodes = INSTANCE.getConfiguration().getNodes();
 
-        if(INSTANCE.getConfiguration().getNodeId().equals("node_1")) {
+        if (INSTANCE.getConfiguration().getNodeId().equals("node_1")) {
             nodes.add(new Node("node_2", "10.1.4.2", 10));
         } else {
             nodes.add(new Node("node_1", "10.1.4.1", 9));
@@ -85,7 +86,8 @@ public class DatabaseManager {
                                     BCrypt.hashpw("12345", BCrypt.gensalt()),
                                     User.Role.Standard,
                                     name.equals("hadeel") ? "node_2" : "node_1"));
-                    Map<String, Object> result = mapper.convertValue(json, new TypeReference<Map<String, Object>>(){});
+                    Map<String, Object> result = mapper.convertValue(json, new TypeReference<Map<String, Object>>() {
+                    });
                     result.put("_id", name);
                     result.put("_affinity", name);
                     json = mapper.valueToTree(result);
@@ -113,7 +115,8 @@ public class DatabaseManager {
 
     public void saveMetaData() {
         lockMetaData();
-        try(ObjectOutputStream stream = new ObjectOutputStream(new FileOutputStream(Paths.get(metaData.getSavePath()).resolve("config.dat").toFile()))) {
+        try (ObjectOutputStream stream = new ObjectOutputStream(
+                new FileOutputStream(Paths.get(metaData.getSavePath()).resolve("config.dat").toFile()))) {
             stream.writeObject(metaData);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -145,10 +148,9 @@ public class DatabaseManager {
     }
 
     public static DatabaseManager getInstance() {
-        if(INSTANCE == null)
+        if (INSTANCE == null)
             initialize();
         return INSTANCE;
     }
-
 
 }

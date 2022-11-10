@@ -220,28 +220,39 @@ public class DatabaseHandler extends RequestHandler {
     }
 
     private void incrementAffinity(String nodeId) {
-        MetaData metaData = manager.getConfiguration();
         manager.lockMetaData();
-        List<Node> nodes = metaData.getNodes();
-        if(nodeId.equals(metaData.getNodeId())) {
-            manager.getConfiguration().incNumDocuments();
-        } else {
-            final String nid = nodeId;
-            nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.incNumDocuments());
+        try {
+            MetaData metaData = manager.getConfiguration();
+            List<Node> nodes = metaData.getNodes();
+            if(nodeId.equals(metaData.getNodeId())) {
+                manager.getConfiguration().incNumDocuments();
+            } else {
+                final String nid = nodeId;
+                nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.incNumDocuments());
+            }
+            manager.saveMetaData();
+        } finally {
+            manager.unlockMetaData();
         }
-        manager.saveMetaData();
+
     }
 
     private void decrementAffinity(String nodeId) {
-        MetaData metaData = manager.getConfiguration();
         manager.lockMetaData();
-        List<Node> nodes = metaData.getNodes();
-        if(nodeId.equals(metaData.getNodeId())) {
-            manager.getConfiguration().decNumDocuments();
-        } else {
-            final String nid = nodeId;
-            nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.decNumDocuments());
+
+        try {
+            MetaData metaData = manager.getConfiguration();
+            List<Node> nodes = metaData.getNodes();
+            if(nodeId.equals(metaData.getNodeId())) {
+                manager.getConfiguration().decNumDocuments();
+            } else {
+                final String nid = nodeId;
+                nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.decNumDocuments());
+            }
+        } finally {
+            manager.unlockMetaData();
         }
+
 
         manager.saveMetaData();
     }

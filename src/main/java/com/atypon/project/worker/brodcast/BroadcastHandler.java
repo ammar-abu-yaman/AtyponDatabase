@@ -59,15 +59,15 @@ public class BroadcastHandler extends RequestHandler {
     }
 
     private void broadcastHelper(DatabaseRequest request, String action, String info) {
-        String payload = request.getPayload().toString();
         // async broadcasting
         Thread thread = new Thread(() -> {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>("{}", headers);
-            for(Node node: nodes) {
+            for (Node node : nodes) {
                 try {
-                    new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity, String.class);
+                    new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity,
+                            String.class);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -87,9 +87,10 @@ public class BroadcastHandler extends RequestHandler {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(payload, headers);
-            for(Node node: nodes) {
+            for (Node node : nodes) {
                 try {
-                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "add_document", databaseName), entity, String.class);
+                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "add_document", databaseName),
+                            entity, String.class);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

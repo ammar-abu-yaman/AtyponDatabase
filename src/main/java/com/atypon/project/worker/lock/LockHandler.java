@@ -27,6 +27,7 @@ public class LockHandler extends RequestHandler {
                 return;
             case Login:
                 handleLogin(request);
+                return;
             default:
                 handleSensitive(request);
                 return;
@@ -36,9 +37,12 @@ public class LockHandler extends RequestHandler {
     private void handleLogin(DatabaseRequest request) {
         Lock lock = lockService.getLock("_Users").readLock();
         try {
+            System.out.println("locked for login");
             lock.lock();
             passRequest(request);
+
         } finally {
+            System.out.println("unlocked login");
             lock.unlock();
         }
     }
@@ -48,16 +52,18 @@ public class LockHandler extends RequestHandler {
         Lock lock = null;
         globalLock.lock();
         try {
-            if(!lockService.containsLock(request.getDatabaseName())) {
+            if (!lockService.containsLock(request.getDatabaseName())) {
                 passRequest(request);
                 return;
             }
+            System.out.println("lock for reading");
             lock = lockService.getLock(request.getDatabaseName()).readLock();
             lock.lock();
             passRequest(request);
         } finally {
+            System.out.println("unlock for reading");
             globalLock.unlock();
-            if(lock != null) {
+            if (lock != null) {
                 lock.unlock();
             }
         }
@@ -69,7 +75,8 @@ public class LockHandler extends RequestHandler {
         Lock lock = null;
         globalLock.lock();
         try {
-            if(!lockService.containsLock(request.getDatabaseName())) {
+            System.out.println("lock for writing");
+            if (!lockService.containsLock(request.getDatabaseName())) {
                 passRequest(request);
                 return;
             }
@@ -77,8 +84,9 @@ public class LockHandler extends RequestHandler {
             lock.lock();
             passRequest(request);
         } finally {
+            System.out.println("unlock for writing");
             globalLock.unlock();
-            if(lock != null) {
+            if (lock != null) {
                 lock.unlock();
             }
         }
@@ -88,15 +96,17 @@ public class LockHandler extends RequestHandler {
         Lock globalLock = lockService.getGlobalLock().writeLock();
         globalLock.lock();
         try {
+            System.out.println("lock for sensitive");
             passRequest(request);
-            if(request.getStatus() == DatabaseRequest.Status.Rejected)
+            if (request.getStatus() == DatabaseRequest.Status.Rejected)
                 return;
-            if(request.getRequestType() == RequestType.CreateDatabase) {
+            if (request.getRequestType() == RequestType.CreateDatabase) {
                 lockService.createLock(request.getDatabaseName());
             }
-            if(request.getRequestType() == RequestType.DeleteDatabase)
+            if (request.getRequestType() == RequestType.DeleteDatabase)
                 lockService.deleteLock(request.getDatabaseName());
         } finally {
+            System.out.println("unlock for sensitive");
             globalLock.unlock();
         }
     }
