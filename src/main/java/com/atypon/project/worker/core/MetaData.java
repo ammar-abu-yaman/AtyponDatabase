@@ -13,10 +13,12 @@ import java.util.List;
 public class MetaData implements Serializable {
 
     private String nodeId;
+    private String address;
     private String savePath;
     private String dataDirectory;
     private String indexesDirectory;
     private List<String> indexesIdentifiers;
     private List<String> databasesNames;
+    private List<Node> nodes;
 
 }

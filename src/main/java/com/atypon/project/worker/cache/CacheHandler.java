@@ -3,8 +3,6 @@ package com.atypon.project.worker.cache;
 import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
 import com.atypon.project.worker.request.RequestType;
-
-
 import java.util.*;
 
 public class CacheHandler extends RequestHandler {
