@@ -56,4 +56,8 @@ public class Node implements Serializable {
     public int hashCode() {
         return Objects.hash(id, address, numDocuments);
     }
+
+    public void decNumDocuments() {
+        numDocuments--;
+    }
 }

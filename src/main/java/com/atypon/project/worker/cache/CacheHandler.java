@@ -84,7 +84,7 @@ public class CacheHandler extends RequestHandler {
     }
 
     private boolean isFailedRequest(DatabaseRequest request) {
-        return request.getStatus() == DatabaseRequest.Status.Rejected;
+        return request.getStatus() != DatabaseRequest.Status.Accepted;
     }
 
 

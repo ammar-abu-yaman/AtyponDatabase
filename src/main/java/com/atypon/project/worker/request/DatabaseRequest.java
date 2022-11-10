@@ -12,7 +12,7 @@ import java.util.Set;
 @Builder
 public class DatabaseRequest implements Serializable {
 
-    public enum Originator { User, Node }
+    public enum Originator { User, Broadcaster, Deferrer}
     public enum Status { Accepted, Rejected }
 
     @Builder.Default

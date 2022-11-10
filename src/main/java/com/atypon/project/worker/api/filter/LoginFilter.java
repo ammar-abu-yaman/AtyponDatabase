@@ -18,7 +18,7 @@ public class LoginFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) servletRequest;
         HttpServletResponse resp = (HttpServletResponse) servletResponse;
         String url = req.getRequestURI();
-        if(url.equals("/login")) {
+        if(url.startsWith("/login") || url.startsWith("/_internal")) {
             filterChain.doFilter(servletRequest, servletResponse);
             return;
         }
@@ -26,7 +26,7 @@ public class LoginFilter implements Filter {
         HttpSession session = req.getSession(false);
 
         if(session == null || session.getAttribute("user") == null) {
-            resp.setStatus(404);
+            resp.setStatus(400);
             return;
         }
         filterChain.doFilter(servletRequest, servletResponse);

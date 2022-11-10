@@ -14,6 +14,7 @@ public class MetaData implements Serializable {
 
     private String nodeId;
     private String address;
+    private int numDocuments;
     private String savePath;
     private String dataDirectory;
     private String indexesDirectory;
@@ -21,4 +22,10 @@ public class MetaData implements Serializable {
     private List<String> databasesNames;
     private List<Node> nodes;
 
+    public void incNumDocuments() {
+        numDocuments++;
+    }
+    public void decNumDocuments() {
+        numDocuments--;
+    }
 }
