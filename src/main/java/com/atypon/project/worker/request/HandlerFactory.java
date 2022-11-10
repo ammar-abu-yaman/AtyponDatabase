@@ -1,6 +1,6 @@
 package com.atypon.project.worker.request;
 
-import com.atypon.project.worker.auth.LoginHandler;
+import com.atypon.project.worker.user.LoginHandler;
 import com.atypon.project.worker.brodcast.BroadcastHandler;
 import com.atypon.project.worker.core.DatabaseManager;
 
@@ -44,8 +44,7 @@ public class HandlerFactory {
         handlerChain
                 .setNextHandler(manager.getCacheService().getHandler())
                 .setNextHandler(manager.getIndexService().getHandler())
-                .setNextHandler(manager.getDatabaseService().getHandler())
-                .setNextHandler(new BroadcastHandler());
+                .setNextHandler(manager.getDatabaseService().getHandler());
         return handlerChain;
     }
 

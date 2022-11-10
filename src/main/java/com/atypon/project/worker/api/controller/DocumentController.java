@@ -37,6 +37,7 @@ public class DocumentController {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
         DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
                 .builder()
+                .originator(DatabaseRequest.Originator.User)
                 .databaseName(databaseName)
                 .requestType(type);
 
@@ -65,6 +66,7 @@ public class DocumentController {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
         DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
                 .builder()
+                .originator(DatabaseRequest.Originator.User)
                 .databaseName(databaseName)
                 .requestType(RequestType.AddDocument);
 
@@ -83,6 +85,7 @@ public class DocumentController {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
         DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
                 .builder()
+                .originator(DatabaseRequest.Originator.User)
                 .databaseName(databaseName)
                 .requestType(RequestType.UpdateDocument);
 
@@ -109,6 +112,7 @@ public class DocumentController {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
         DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
                 .builder()
+                .originator(DatabaseRequest.Originator.User)
                 .databaseName(databaseName)
                 .requestType(RequestType.DeleteDocument);
 

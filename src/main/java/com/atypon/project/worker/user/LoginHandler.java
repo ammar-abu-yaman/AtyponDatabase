@@ -1,13 +1,13 @@
-package com.atypon.project.worker.auth;
+package com.atypon.project.worker.user;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.database.Database;
+import com.atypon.project.worker.index.BTreeIndex;
 import com.atypon.project.worker.index.Index;
 import com.atypon.project.worker.index.IndexKey;
 import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -38,7 +38,8 @@ public class LoginHandler extends RequestHandler {
 
         JsonNode username = credentials.get("username");
         String password = credentials.get("password").asText();
-
+        System.out.println(username + " " + password);
+        ((BTreeIndex)usernameIndex).traverse();
         // no user in the database
         if(!usernameIndex.contains(username))
             return Optional.empty();

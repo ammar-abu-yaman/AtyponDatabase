@@ -1,6 +1,5 @@
 package com.atypon.project.worker;
 
-import com.atypon.project.worker.auth.User;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
@@ -23,6 +22,7 @@ public class WorkerApplication {
 		DatabaseManager manager = DatabaseManager.getInstance();
 
 		DatabaseRequest request = DatabaseRequest.builder()
+				.originator(DatabaseRequest.Originator.Broadcaster)
 				.requestType(RequestType.CreateIndex)
 				.databaseName("Books")
 				.indexFieldName("price")
@@ -31,20 +31,20 @@ public class WorkerApplication {
 		RequestHandler chain = manager.getHandlersFactory().getHandler(request);
 		chain.handleRequest(request);
 
-		for(String content: new String[] {
-				"{\"title\": \"Harry Potter\", \"price\": 13.5}",
-				"{\"title\": \"Jamaica\", \"price\": 13.5}",
-				"{\"title\": \"C++\", \"price\": 200}",
-				"{\"title\": \"Java\", \"price\": 200}",
-		}) {
-			chain.handleRequest(DatabaseRequest
-					.builder()
-					.databaseName("Books")
-					.requestType(RequestType.AddDocument)
-					.payload(new ObjectMapper().readTree(content))
-					.build()
-			);
-		}
+//		for(String content: new String[] {
+//				"{\"title\": \"Harry Potter\", \"price\": 13.5}",
+//				"{\"title\": \"Jamaica\", \"price\": 13.5}",
+//				"{\"title\": \"C++\", \"price\": 200}",
+//				"{\"title\": \"Java\", \"price\": 200}",
+//		}) {
+//			chain.handleRequest(DatabaseRequest
+//					.builder()
+//					.databaseName("Books")
+//					.requestType(RequestType.AddDocument)
+//					.payload(new ObjectMapper().readTree(content))
+//					.build()
+//			);
+//		}
 	}
 
 }

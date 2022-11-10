@@ -96,7 +96,8 @@ public class DatabaseHandler extends RequestHandler {
             request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
         }
 
-        incrementAffinity(affinity);
+        if(!request.getDatabaseName().equals("_Users"))
+            incrementAffinity(affinity);
         databaseService.getDatabase(request.getDatabaseName()).addDocument(documentIndex, payload);
         request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
         passRequest(request);

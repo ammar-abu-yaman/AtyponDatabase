@@ -1,10 +1,6 @@
-package com.atypon.project.worker.auth;
-
-import lombok.Getter;
-import lombok.Setter;
+package com.atypon.project.worker.user;
 
 import java.io.Serializable;
-import java.util.Locale;
 import java.util.Objects;
 
 public class User implements Serializable {

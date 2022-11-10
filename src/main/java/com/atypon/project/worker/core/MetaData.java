@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 @Builder
@@ -20,7 +21,8 @@ public class MetaData implements Serializable {
     private String indexesDirectory;
     private List<String> indexesIdentifiers;
     private List<String> databasesNames;
-    private List<Node> nodes;
+    @Builder.Default
+    private List<Node> nodes = new ArrayList<>();
 
     public void incNumDocuments() {
         numDocuments++;

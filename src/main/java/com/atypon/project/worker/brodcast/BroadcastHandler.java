@@ -19,7 +19,7 @@ public class BroadcastHandler extends RequestHandler {
     ObjectMapper mapper = new ObjectMapper();
     List<Node> nodes = manager.getConfiguration().getNodes();
 
-    final static String URL = "http:%s:8080/_internal/%s/%s";
+    final static String URL = "http://%s:8080/_internal/%s/%s";
 
     @Override
     public void handleRequest(DatabaseRequest request) {
@@ -38,8 +38,14 @@ public class BroadcastHandler extends RequestHandler {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(payload, headers);
-            for(Node node: nodes)
-                new RestTemplate().postForEntity(format(URL, node.getAddress(), "add_document", databaseName), entity, String.class);
+            for(Node node: nodes) {
+                try {
+                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "add_document", databaseName), entity, String.class);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
         });
         thread.setDaemon(true);
         thread.start();
