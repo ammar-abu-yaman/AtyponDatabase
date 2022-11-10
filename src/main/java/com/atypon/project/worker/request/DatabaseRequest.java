@@ -89,4 +89,8 @@ public class DatabaseRequest implements Serializable {
     public void setUsedDocuments(Set<String> usedDocuments) {
         this.usedDocuments = usedDocuments;
     }
+
+    public void setPayload(JsonNode payload) {
+        this.payload = payload;
+    }
 }

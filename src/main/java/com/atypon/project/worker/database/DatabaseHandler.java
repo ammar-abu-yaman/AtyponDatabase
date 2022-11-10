@@ -87,15 +87,15 @@ public class DatabaseHandler extends RequestHandler {
             result.put("_id", documentIndex);
             result.put("_affinity", affinity);
             payload = mapper.valueToTree(result);
-
+            request.setPayload(payload);
             // broadcaster is accessing the system
         } else {
             documentIndex = payload.get("_id").asText();
             affinity = payload.get("_affinity").asText();
             databaseService.getDatabase(request.getDatabaseName()).addDocument(documentIndex, payload);
-            request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
-        }
 
+        }
+        request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
         if(!request.getDatabaseName().equals("_Users"))
             incrementAffinity(affinity);
         databaseService.getDatabase(request.getDatabaseName()).addDocument(documentIndex, payload);
@@ -138,6 +138,7 @@ public class DatabaseHandler extends RequestHandler {
     private void deleteDocument(DatabaseRequest request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         Set<String> usedDocuments = new HashSet<>();
+
         indexRequest(request, database)
                 .stream()
                 .limit(1)

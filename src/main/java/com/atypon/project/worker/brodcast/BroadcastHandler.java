@@ -27,7 +27,56 @@ public class BroadcastHandler extends RequestHandler {
             case AddDocument:
                 addDocument(request);
                 return;
+            case DeleteDatabase:
+                deleteDatabase(request);
+                return;
+            case CreateDatabase:
+                createDatabase(request);
+                return;
+            case CreateIndex:
+                createIndex(request);
+                return;
+            case DeleteIndex:
+                deleteIndex(request);
+
         }
+    }
+
+    private void createIndex(DatabaseRequest request) {
+        broadcastHelper(request, "create_index", request.getDatabaseName() + "/" + request.getIndexFieldName());
+    }
+
+    private void deleteIndex(DatabaseRequest request) {
+        broadcastHelper(request, "delete_index", request.getDatabaseName() + "/" + request.getIndexFieldName());
+    }
+
+    private void createDatabase(DatabaseRequest request) {
+        broadcastHelper(request, "create_database", request.getDatabaseName());
+    }
+
+    private void deleteDatabase(DatabaseRequest request) {
+        broadcastHelper(request, "delete_database", request.getDatabaseName());
+    }
+
+    private void broadcastHelper(DatabaseRequest request, String action, String info) {
+        String payload = request.getPayload().toString();
+        // async broadcasting
+        Thread thread = new Thread(() -> {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>("{}", headers);
+            for(Node node: nodes) {
+                try {
+                    new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity, String.class);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+        });
+        thread.setDaemon(true);
+        thread.start();
+        request.setStatus(DatabaseRequest.Status.Accepted);
     }
 
     public void addDocument(DatabaseRequest request) {
