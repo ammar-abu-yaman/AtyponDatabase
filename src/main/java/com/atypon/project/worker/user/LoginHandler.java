@@ -5,7 +5,7 @@ import com.atypon.project.worker.database.Database;
 import com.atypon.project.worker.index.BTreeIndex;
 import com.atypon.project.worker.index.Index;
 import com.atypon.project.worker.index.IndexKey;
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
 import com.atypon.project.worker.request.RequestHandler;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,14 +19,14 @@ import java.util.Optional;
 public class LoginHandler extends RequestHandler {
 
     @Override
-    public void handleRequest(DatabaseRequest request) {
+    public void handleRequest(Query request) {
         JsonNode credentials = request.getPayload();
         Optional<User> user = validateUser(credentials);
         if(user.isPresent()) {
-            request.setStatus(DatabaseRequest.Status.Accepted);
+            request.setStatus(Query.Status.Accepted);
             request.getRequestOutput().append(new ObjectMapper().valueToTree(user.get()).toString());
         } else {
-            request.setStatus(DatabaseRequest.Status.Rejected);
+            request.setStatus(Query.Status.Rejected);
             request.getRequestOutput().append("Incorrect username or password or incorrect node accessed by user");
         }
     }

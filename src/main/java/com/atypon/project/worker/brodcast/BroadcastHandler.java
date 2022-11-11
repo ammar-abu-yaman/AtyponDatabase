@@ -2,10 +2,11 @@ package com.atypon.project.worker.brodcast;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Node;
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
 import com.atypon.project.worker.request.RequestHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -26,13 +27,16 @@ public class BroadcastHandler extends RequestHandler {
     final static String URL = "http://%s:8080/_internal/%s/%s";
 
     @Override
-    public void handleRequest(DatabaseRequest request) {
-        switch (request.getRequestType()) {
+    public void handleRequest(Query request) {
+        switch (request.getQueryType()) {
             case AddDocument:
                 addDocument(request);
                 return;
             case DeleteDocument:
                 deleteDocument(request);
+                return;
+            case UpdateDocument:
+                updateDocument(request);
                 return;
             case DeleteDatabase:
                 deleteDatabase(request);
@@ -46,48 +50,73 @@ public class BroadcastHandler extends RequestHandler {
             case DeleteIndex:
                 deleteIndex(request);
                 return;
+
         }
     }
 
-    private void createIndex(DatabaseRequest request) {
-        broadcastHelper(request, "create_index", request.getDatabaseName() + "/" + request.getIndexFieldName());
-    }
-
-    private void deleteIndex(DatabaseRequest request) {
-        broadcastHelper(request, "delete_index", request.getDatabaseName() + "/" + request.getIndexFieldName());
-    }
-
-    private void createDatabase(DatabaseRequest request) {
-        broadcastHelper(request, "create_database", request.getDatabaseName());
-    }
-
-    private void deleteDatabase(DatabaseRequest request) {
-        broadcastHelper(request, "delete_database", request.getDatabaseName());
-    }
-
-    private void broadcastHelper(DatabaseRequest request, String action, String info) {
-        // async broadcasting
-        broadcast(() -> {
+    private void updateDocument(Query query) {
+        JsonNode oldData = query.getOldData();
+        JsonNode payload = query.getPayload();
+        ObjectNode body = mapper.createObjectNode();
+        body.set("old", oldData);
+        body.set("payload", payload);
+        if(query.hasAffinity()) {
+            launch(() -> {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
+                for (Node node : nodes) {
+                    try {
+                        new RestTemplate().postForEntity(format(URL, node.getAddress(), "update_document", query.getDatabaseName()), entity, String.class);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        } else {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<String> entity = new HttpEntity<>("{}", headers);
+            HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
             for (Node node : nodes) {
                 try {
-                    new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity,
-                            String.class);
+                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "update_document", query.getDatabaseName()), entity, String.class);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-        });
-        request.setStatus(DatabaseRequest.Status.Accepted);
+        }
     }
 
-    public void addDocument(DatabaseRequest request) {
+    private void createIndex(Query request) {
+        broadcast("create_index", request.getDatabaseName() + "/" + request.getIndexFieldName(), "{}");
+        request.setStatus(Query.Status.Accepted);
+    }
+
+    private void deleteIndex(Query request) {
+        broadcast("delete_index", request.getDatabaseName() + "/" + request.getIndexFieldName(), "{}");
+        request.setStatus(Query.Status.Accepted);
+    }
+
+    private void createDatabase(Query request) {
+        broadcast("create_database", request.getDatabaseName(), "{}");
+        request.setStatus(Query.Status.Accepted);
+    }
+
+    private void deleteDatabase(Query request) {
+        broadcast("delete_database", request.getDatabaseName(), "{}");
+        request.setStatus(Query.Status.Accepted);
+    }
+
+    private void broadcast(String action, String info, String body) {
+        // async broadcasting
+        launch(() -> sendToNodes(action, info, body));
+    }
+
+    public void addDocument(Query request) {
         String payload = request.getPayload().toString();
         String databaseName = request.getDatabaseName();
         // async broadcasting
-        broadcast(() -> {
+        launch(() -> {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(payload, headers);
@@ -100,14 +129,13 @@ public class BroadcastHandler extends RequestHandler {
                 }
             }
         });
-        request.setStatus(DatabaseRequest.Status.Accepted);
     }
 
-    public void deleteDocument(DatabaseRequest request) {
+    public void deleteDocument(Query request) {
         List<String> ids = request.getUsedDocuments().stream().collect(Collectors.toList());
         String databaseName = request.getDatabaseName();
         // async broadcasting
-        broadcast(() -> {
+        launch(() -> {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             Map<String, Object> map = new HashMap<>();
@@ -123,10 +151,24 @@ public class BroadcastHandler extends RequestHandler {
                 }
             }
         });
-        request.setStatus(DatabaseRequest.Status.Accepted);
+        request.setStatus(Query.Status.Accepted);
     }
 
-    private void broadcast(Runnable runnable) {
+    private void sendToNodes(String action, String info, String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        for (Node node : nodes) {
+            try {
+                new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity,
+                        String.class);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void launch(Runnable runnable) {
         Thread thread = new Thread(runnable);
         thread.setDaemon(true);
         thread.start();

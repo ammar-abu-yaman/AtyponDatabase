@@ -1,18 +1,15 @@
 package com.atypon.project.worker;
 
+import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.request.QueryType;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.atypon.project.worker.cache.SyncLRUCache;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.index.BTreeIndex;
 import com.atypon.project.worker.index.JsonComparator;
-import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
 
-import java.util.List;
 import java.util.function.Function;
 
 public class Main {
@@ -27,10 +24,10 @@ public class Main {
         DatabaseManager manager = DatabaseManager.getInstance();
         RequestHandler chain = manager.getHandlersFactory().getHandler(null);
 
-        Function<Integer, DatabaseRequest> view = (i) -> {
+        Function<Integer, Query> view = (i) -> {
             try {
-                DatabaseRequest request = DatabaseRequest.builder()
-                        .requestType(RequestType.FindDocuments)
+                Query request = Query.builder()
+                        .queryType(QueryType.FindDocuments)
                         .databaseName("Books")
                         .filterKey(new Entry<>("price", new ObjectMapper().readTree("13.5")))
                         .build();
@@ -45,8 +42,8 @@ public class Main {
         view.apply(1);
         view.apply(1);
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.DeleteDocument)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.DeleteDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"Jamaica\"")))
                 .build());
@@ -54,8 +51,8 @@ public class Main {
         view.apply(1);
 
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.UpdateDocument)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.UpdateDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"C++\"")))
                 .payload(new ObjectMapper().readTree("{\"price\": 13.5}"))
@@ -64,16 +61,16 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.DeleteDatabase)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.DeleteDatabase)
                 .databaseName("Books")
                 .build()
         );
 
         view.apply(1);
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.CreateDatabase)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.CreateDatabase)
                 .databaseName("Books")
                 .build()
         );
@@ -88,10 +85,10 @@ public class Main {
         DatabaseManager manager = DatabaseManager.getInstance();
         RequestHandler chain = manager.getHandlersFactory().getHandler(null);
 
-        Function<Integer, DatabaseRequest> view = (i) -> {
+        Function<Integer, Query> view = (i) -> {
             try {
-                DatabaseRequest request = DatabaseRequest.builder()
-                        .requestType(RequestType.FindDocuments)
+                Query request = Query.builder()
+                        .queryType(QueryType.FindDocuments)
                         .databaseName("Books")
                         .filterKey(new Entry<>("price", new ObjectMapper().readTree("13.5")))
                         .build();
@@ -105,8 +102,8 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.DeleteDocument)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.DeleteDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"Jamaica\"")))
                 .build());
@@ -114,8 +111,8 @@ public class Main {
         view.apply(1);
 
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.UpdateDocument)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.UpdateDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"C++\"")))
                 .payload(new ObjectMapper().readTree("{\"price\": 13.5}"))
@@ -124,16 +121,16 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.DeleteDatabase)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.DeleteDatabase)
                 .databaseName("Books")
                 .build()
         );
 
         view.apply(1);
 
-        chain.handleRequest(DatabaseRequest.builder()
-                .requestType(RequestType.CreateDatabase)
+        chain.handleRequest(Query.builder()
+                .queryType(QueryType.CreateDatabase)
                 .databaseName("Books")
                 .build()
         );
@@ -145,8 +142,8 @@ public class Main {
     static void loadData() throws JsonProcessingException {
         DatabaseManager manager = DatabaseManager.getInstance();
 
-        DatabaseRequest request = DatabaseRequest.builder()
-                .requestType(RequestType.CreateIndex)
+        Query request = Query.builder()
+                .queryType(QueryType.CreateIndex)
                 .databaseName("Books")
                 .indexFieldName("price")
                 .build();
@@ -160,10 +157,10 @@ public class Main {
                 "{\"title\": \"C++\", \"price\": 200}",
                 "{\"title\": \"Java\", \"price\": 200}",
         }) {
-            chain.handleRequest(DatabaseRequest
+            chain.handleRequest(Query
                     .builder()
                     .databaseName("Books")
-                    .requestType(RequestType.AddDocument)
+                    .queryType(QueryType.AddDocument)
                     .payload(new ObjectMapper().readTree(content))
                     .build()
             );

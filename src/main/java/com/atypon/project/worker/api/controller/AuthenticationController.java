@@ -1,9 +1,9 @@
 package com.atypon.project.worker.api.controller;
 
+import com.atypon.project.worker.request.Query;
 import com.atypon.project.worker.user.User;
 import com.atypon.project.worker.core.DatabaseManager;
-import com.atypon.project.worker.request.DatabaseRequest;
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.QueryType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,13 +20,13 @@ public class AuthenticationController {
     @PostMapping("/login")
     public String login(HttpSession session, @RequestBody Credentials credentials) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.User)
-                .requestType(RequestType.Login)
+        Query request = Query.builder()
+                .originator(Query.Originator.User)
+                .queryType(QueryType.Login)
                 .payload(mapper.valueToTree(credentials))
                 .build();
         DatabaseManager.getInstance().getHandlersFactory().getHandler(request).handleRequest(request);
-        if(request.getStatus() == DatabaseRequest.Status.Accepted) {
+        if(request.getStatus() == Query.Status.Accepted) {
             JsonNode json = mapper.readTree(request.getRequestOutput().toString());
             User user = new User(
                     json.get("username").asText(),

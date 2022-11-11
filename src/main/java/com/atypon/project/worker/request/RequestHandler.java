@@ -5,12 +5,12 @@ public abstract class RequestHandler {
 
     protected RequestHandler nextHandler;
 
-    public abstract void handleRequest(DatabaseRequest request);
+    public abstract void handleRequest(Query request);
     public RequestHandler setNextHandler(RequestHandler handler) {
         nextHandler = handler;
         return handler;
     }
-    public void passRequest(DatabaseRequest request) {
+    public void passRequest(Query request) {
         if(nextHandler != null)
             nextHandler.handleRequest(request);
     }

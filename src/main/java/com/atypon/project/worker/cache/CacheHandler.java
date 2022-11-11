@@ -1,8 +1,8 @@
 package com.atypon.project.worker.cache;
 
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
 import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.QueryType;
 import java.util.*;
 
 public class CacheHandler extends RequestHandler {
@@ -14,8 +14,8 @@ public class CacheHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(DatabaseRequest request) {
-        switch (request.getRequestType()) {
+    public void handleRequest(Query request) {
+        switch (request.getQueryType()) {
             case FindDocument:
             case FindDocuments:
                 handleRead(request);
@@ -36,7 +36,7 @@ public class CacheHandler extends RequestHandler {
     }
 
 
-    private void handleRead(DatabaseRequest request) {
+    private void handleRead(Query request) {
 
         // case where there is no database with the name provided by the request
         if(!service.containsCache(request.getDatabaseName())) {
@@ -51,7 +51,7 @@ public class CacheHandler extends RequestHandler {
         // Cache hit case
         if(cachedOutput.isPresent()) {
             request.getRequestOutput().append(cachedOutput.get());
-            request.setStatus(DatabaseRequest.Status.Accepted);
+            request.setStatus(Query.Status.Accepted);
             System.out.println("Cache Hit");
             return;
         }
@@ -63,7 +63,7 @@ public class CacheHandler extends RequestHandler {
         cache.put(new CacheEntry(request), request.getRequestOutput().toString());
     }
 
-    private void handleWrite(DatabaseRequest request) {
+    private void handleWrite(Query request) {
         passRequest(request);
 
         if(isFailedRequest(request))
@@ -73,18 +73,18 @@ public class CacheHandler extends RequestHandler {
         cache.clear();
     }
 
-    private void handleDatabaseCreation(DatabaseRequest request) {
+    private void handleDatabaseCreation(Query request) {
         passRequest(request);
         if(isFailedRequest(request))
             return;
-        if(request.getRequestType() == RequestType.CreateDatabase)
+        if(request.getQueryType() == QueryType.CreateDatabase)
             service.createCache(request.getDatabaseName());
-        else if(request.getRequestType() == RequestType.DeleteDatabase)
+        else if(request.getQueryType() == QueryType.DeleteDatabase)
             service.deleteCache(request.getDatabaseName());
     }
 
-    private boolean isFailedRequest(DatabaseRequest request) {
-        return request.getStatus() != DatabaseRequest.Status.Accepted;
+    private boolean isFailedRequest(Query request) {
+        return request.getStatus() != Query.Status.Accepted;
     }
 
 

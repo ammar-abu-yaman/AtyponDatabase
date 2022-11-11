@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 @Builder
-public class DatabaseRequest implements Serializable {
+public class Query implements Serializable {
 
     public enum Originator { User, Broadcaster, Deferrer}
     public enum Status { Accepted, Rejected }
@@ -18,11 +18,12 @@ public class DatabaseRequest implements Serializable {
     @Builder.Default
     private Status status = Status.Accepted;
     private String databaseName;
-    private String requestInput;
+    private JsonNode oldData;
+    private boolean hasAffinity;
     @Builder.Default
     private StringBuilder requestOutput = new StringBuilder();
     private Originator originator;
-    private RequestType requestType;
+    private QueryType queryType;
     private Index index;
     private Entry<String, JsonNode> filterKey;
     private JsonNode payload;
@@ -34,16 +35,28 @@ public class DatabaseRequest implements Serializable {
         return databaseName;
     }
 
-    public String getRequestInput() {
-        return requestInput;
+    public JsonNode getOldData() {
+        return oldData;
+    }
+
+    public void setOldData(JsonNode oldData) {
+        this.oldData = oldData;
+    }
+
+    public boolean hasAffinity() {
+        return hasAffinity;
+    }
+
+    public void setHasAffinity(boolean hasAffinity) {
+        this.hasAffinity = hasAffinity;
     }
 
     public Originator getOriginator() {
         return originator;
     }
 
-    public RequestType getRequestType() {
-        return requestType;
+    public QueryType getQueryType() {
+        return queryType;
     }
 
     public StringBuilder getRequestOutput() {

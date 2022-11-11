@@ -9,7 +9,7 @@ import java.util.Arrays;
 public class HandlerFactory {
     DatabaseManager manager = DatabaseManager.getInstance();
 
-    public RequestHandler getHandler(DatabaseRequest request) {
+    public RequestHandler getHandler(Query request) {
         switch (request.getOriginator()) {
             case User:
                 return getUserHandler(request);
@@ -22,17 +22,17 @@ public class HandlerFactory {
         return null;
     }
 
-    private RequestHandler getUserHandler(DatabaseRequest request) {
+    private RequestHandler getUserHandler(Query request) {
         RequestHandler handlerChain = manager.getLockService().getHandler();
 
         // case of a login request
-        if(request.getRequestType() == RequestType.Login) {
+        if(request.getQueryType() == QueryType.Login) {
             handlerChain.setNextHandler(new LoginHandler());
             return handlerChain;
         }
 
         // case of creating of deleting indexes
-        if(oneOf(request, RequestType.CreateIndex, RequestType.DeleteIndex)) {
+        if(oneOf(request, QueryType.CreateIndex, QueryType.DeleteIndex)) {
             handlerChain
                     .setNextHandler(manager.getCacheService().getHandler())
                     .setNextHandler(manager.getIndexService().getHandler())
@@ -47,11 +47,11 @@ public class HandlerFactory {
         return handlerChain;
     }
 
-    private RequestHandler getBroadcastHandler(DatabaseRequest request) {
+    private RequestHandler getBroadcastHandler(Query request) {
         RequestHandler handlerChain = manager.getLockService().getHandler();
 
         // case of creating of deleting indexes
-        if(oneOf(request, RequestType.CreateIndex, RequestType.DeleteIndex)) {
+        if(oneOf(request, QueryType.CreateIndex, QueryType.DeleteIndex)) {
             handlerChain
                     .setNextHandler(manager.getCacheService().getHandler())
                     .setNextHandler(manager.getIndexService().getHandler());
@@ -65,13 +65,13 @@ public class HandlerFactory {
     }
 
     //TODO: implement deferred handler
-    private RequestHandler getDeferrerHandler(DatabaseRequest request) {
+    private RequestHandler getDeferrerHandler(Query request) {
         return null;
     }
 
 
-    private boolean oneOf(DatabaseRequest request, RequestType... types) {
-        return Arrays.stream(types).anyMatch(t -> request.getRequestType() == t);
+    private boolean oneOf(Query request, QueryType... types) {
+        return Arrays.stream(types).anyMatch(t -> request.getQueryType() == t);
     }
 
 

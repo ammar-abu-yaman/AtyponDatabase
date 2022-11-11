@@ -1,9 +1,9 @@
 package com.atypon.project.worker.cache;
 
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.QueryType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
 
 import java.util.Collections;
 import java.util.List;
@@ -13,14 +13,14 @@ import java.util.stream.Collectors;
 
 public class CacheEntry {
 
-    private RequestType type;
+    private QueryType type;
     private String databaseName;
     private Entry<String, JsonNode> filterKey;
     private List<String> requiredProperties;
     private Set<String> usedDocuments;
 
-    public CacheEntry(DatabaseRequest request) {
-        this.type = request.getRequestType();
+    public CacheEntry(Query request) {
+        this.type = request.getQueryType();
         this.databaseName = request.getDatabaseName();
         this.filterKey = request.getFilterKey();
         if(request.getRequiredProperties() != null) {
@@ -31,7 +31,7 @@ public class CacheEntry {
         this.usedDocuments = request.getUsedDocuments();
     }
 
-    public RequestType getType() {
+    public QueryType getType() {
         return type;
     }
 

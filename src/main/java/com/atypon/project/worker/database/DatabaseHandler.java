@@ -3,21 +3,20 @@ package com.atypon.project.worker.database;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
 import com.atypon.project.worker.core.Node;
+import com.atypon.project.worker.request.Query;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.QueryType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 
 public class DatabaseHandler extends RequestHandler {
 
@@ -31,15 +30,15 @@ public class DatabaseHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(DatabaseRequest request) {
-        if(request.getRequestType() != RequestType.CreateDatabase
+    public void handleRequest(Query request) {
+        if (request.getQueryType() != QueryType.CreateDatabase
                 && !databaseService.containsDatabase(request.getDatabaseName())) {
             request.getRequestOutput().append("No Such Database Exists");
-            request.setStatus(DatabaseRequest.Status.Rejected);
+            request.setStatus(Query.Status.Rejected);
             return;
         }
 
-        switch (request.getRequestType()) {
+        switch (request.getQueryType()) {
             case CreateDatabase:
                 createDatabase(request);
                 break;
@@ -64,34 +63,35 @@ public class DatabaseHandler extends RequestHandler {
         }
     }
 
-    private void createDatabase(DatabaseRequest request) {
-        if(databaseService.containsDatabase(request.getDatabaseName())) {
+    private void createDatabase(Query request) {
+        if (databaseService.containsDatabase(request.getDatabaseName())) {
             request.getRequestOutput().append("Database Already Exists");
-            request.setStatus(DatabaseRequest.Status.Rejected);
+            request.setStatus(Query.Status.Rejected);
             return;
         }
         databaseService.createDatabase(request.getDatabaseName());
         passRequest(request);
     }
 
-    private void deleteDatabase(DatabaseRequest request) {
+    private void deleteDatabase(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         List<String> ids = database.getAllDocuments()
-                .map(document -> document.get("affinity").asText())
+                .map(document -> document.get("_affinity").asText())
                 .collect(Collectors.toList());
         decrementAffinity(database, ids);
         databaseService.deleteDatabase(request.getDatabaseName());
         passRequest(request);
     }
 
-    private void addDocument(DatabaseRequest request) {
+    private void addDocument(Query request) {
         JsonNode payload = request.getPayload();
         String documentIndex;
         String affinity;
-            // user added a document
-        if(request.getOriginator() == DatabaseRequest.Originator.User) {
+        // user added a document
+        if (request.getOriginator() == Query.Originator.User) {
             ObjectMapper mapper = new ObjectMapper();
-            Map<String, Object> result = mapper.convertValue(payload, new TypeReference<Map<String, Object>>(){});
+            Map<String, Object> result = mapper.convertValue(payload, new TypeReference<Map<String, Object>>() {
+            });
             documentIndex = idCreator.createId(request);
             affinity = calculateAffinity();
             result.put("_id", documentIndex);
@@ -106,16 +106,16 @@ public class DatabaseHandler extends RequestHandler {
 
         }
         request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
-        if(!request.getDatabaseName().equals("_Users"))
+        if (!request.getDatabaseName().equals("_Users"))
             incrementAffinity(affinity);
         databaseService.getDatabase(request.getDatabaseName()).addDocument(documentIndex, payload);
         request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
         passRequest(request);
     }
 
-    private void findDocument(DatabaseRequest request) {
+    private void findDocument(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
-        List<String> documentIndices =  indexRequest(request, database)
+        List<String> documentIndices = indexRequest(request, database)
                 .stream()
                 .limit(1)
                 .collect(Collectors.toList());
@@ -126,11 +126,11 @@ public class DatabaseHandler extends RequestHandler {
                 .getDocuments(documentIndices)
                 .map(document -> filterFields(document, request.getRequiredProperties()))
                 .collect(Collectors.toList());
-        if(!documents.isEmpty())
+        if (!documents.isEmpty())
             request.getRequestOutput().append(documents.get(0).toPrettyString());
     }
 
-    private void findDocuments(DatabaseRequest request) {
+    private void findDocuments(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         Set<String> documentIndices = indexRequest(request, database).stream().collect(Collectors.toSet());
         Stream<JsonNode> documents = database.getDocuments(documentIndices);
@@ -140,29 +140,44 @@ public class DatabaseHandler extends RequestHandler {
         documents
                 .map(document -> filterFields(document, request.getRequiredProperties()))
                 .forEach(json -> output.append(json.toPrettyString() + ",\n"));
-        if(output.length() > 1)
-            output.delete(output.length()-2,output.length()).append("\n");
+        if (output.length() > 1)
+            output.delete(output.length() - 2, output.length()).append("\n");
         output.append("]");
     }
 
-    private void deleteDocument(DatabaseRequest request) {
+    private void deleteDocument(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         Set<String> usedDocuments = new HashSet<>();
 
+        manager.lockMetaData();
+        try {
+            MetaData metaData = manager.getConfiguration();
+            List<Node> nodes = metaData.getNodes();
+            List<Entry<String, String>> info = indexRequest(request, database)
+                    .stream()
+                    .limit(1)
+                    .map(id -> database.getDocument(id))
+                    .map(document -> new Entry<>(document.get("_id").asText(), document.get("_affinity").asText()))
+                    .collect(Collectors.toList());
+            for(Entry<String, String> entry: info) {
+                String documentIndex = entry.getKey();
+                String affinity = entry.getValue();
+                database.deleteDocument(documentIndex);
+                usedDocuments.add(documentIndex);
+                nodes.stream()
+                        .filter(node -> node.getId().equals(affinity))
+                        .findFirst().ifPresent(node -> node.decNumDocuments());
+            }
+        } finally {
+            manager.saveMetaData();
+            manager.unlockMetaData();
+        }
 
-        indexRequest(request, database)
-                .stream()
-                .limit(1)
-                .forEach(documentIndex -> {
-                    database.deleteDocument(documentIndex);
-                    usedDocuments.add(documentIndex);
-                });
         request.setUsedDocuments(usedDocuments);
         passRequest(request);
-        decrementAffinity(database, usedDocuments);
     }
 
-    private void updateDocument(DatabaseRequest request) {
+    private void updateDocument(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         Set<String> usedDocuments = new HashSet<>();
         indexRequest(request, database)
@@ -174,13 +189,14 @@ public class DatabaseHandler extends RequestHandler {
                 });
         request.setUsedDocuments(usedDocuments);
     }
-    
-    private List<String> indexRequest(DatabaseRequest request, Database database) {
+
+    private List<String> indexRequest(Query request, Database database) {
         // broadcaster provides the ids of the documents to be deleted
-        if(request.getOriginator() == DatabaseRequest.Originator.Broadcaster) {
+        if (request.getOriginator() == Query.Originator.Broadcaster) {
             List<String> ids = null;
             try {
-                ids = new ObjectMapper().readValue("_ids", TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
+                ids = new ObjectMapper().treeToValue(request.getPayload().get("_ids"),
+                        TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
             } catch (JsonMappingException e) {
                 e.printStackTrace();
             } catch (JsonProcessingException e) {
@@ -189,18 +205,18 @@ public class DatabaseHandler extends RequestHandler {
             return ids.stream().filter(id -> database.contains(id)).collect(Collectors.toList());
         }
 
-        if(request.getIndex() != null) {
+        if (request.getIndex() != null) {
             {
-                System.out.println("using index for " + request.getFilterKey() );
+                System.out.println("using index for " + request.getFilterKey());
             }
             return request.getIndex().search(request.getFilterKey().getValue());
         }
 
         Stream<JsonNode> stream = database.getAllDocuments();
         Entry<String, JsonNode> filterKey = request.getFilterKey();
-        if(request.getFilterKey() != null)
+        if (request.getFilterKey() != null)
             stream = stream
-                        .filter(document -> document.has(filterKey.getKey())
+                    .filter(document -> document.has(filterKey.getKey())
                             && document.get(filterKey.getKey()).equals(filterKey.getValue()));
         return stream
                 .map(document -> document.get("_id").asText())
@@ -208,11 +224,11 @@ public class DatabaseHandler extends RequestHandler {
     }
 
     private static JsonNode filterFields(JsonNode node, List<String> requiredProperties) {
-        if(requiredProperties == null || requiredProperties.isEmpty())
+        if (requiredProperties == null || requiredProperties.isEmpty())
             return node;
         Map<String, Object> properties = new HashMap<>();
-        for(String field: requiredProperties) {
-            if(!node.has(field))
+        for (String field : requiredProperties) {
+            if (!node.has(field))
                 continue;
             properties.put(field, node.get(field));
         }
@@ -222,10 +238,10 @@ public class DatabaseHandler extends RequestHandler {
     }
 
     /*
-    a simple affinity calculation scheme
-    that assign the newly created document's affinity to the
-    node with the least number of assigned documents
-    */
+     * a simple affinity calculation scheme
+     * that assign the newly created document's affinity to the
+     * node with the least number of assigned documents
+     */
     private String calculateAffinity() {
         String nodeId = manager.getConfiguration().getNodeId();
         try {
@@ -233,8 +249,8 @@ public class DatabaseHandler extends RequestHandler {
             manager.lockMetaData();
             List<Node> nodes = metaData.getNodes();
             int numDocuments = manager.getConfiguration().getNumDocuments();
-            for(Node node: nodes) {
-                if(node.getNumDocuments() < numDocuments) {
+            for (Node node : nodes) {
+                if (node.getNumDocuments() < numDocuments) {
                     nodeId = node.getId();
                     numDocuments = node.getNumDocuments();
                 }
@@ -250,7 +266,7 @@ public class DatabaseHandler extends RequestHandler {
         try {
             MetaData metaData = manager.getConfiguration();
             List<Node> nodes = metaData.getNodes();
-            if(nodeId.equals(metaData.getNodeId())) {
+            if (nodeId.equals(metaData.getNodeId())) {
                 manager.getConfiguration().incNumDocuments();
             } else {
                 final String nid = nodeId;
@@ -265,22 +281,19 @@ public class DatabaseHandler extends RequestHandler {
 
     private void decrementAffinity(Database database, Collection<String> documentIndexes) {
         manager.lockMetaData();
-
         try {
             MetaData metaData = manager.getConfiguration();
             List<Node> nodes = metaData.getNodes();
             database
                     .getDocuments(documentIndexes)
-                    .map(document -> document.get("affinity").asText())
-                    .forEach(affinity ->
-                            nodes.stream()
-                                    .filter(node -> node.getId().equals(affinity))
-                                    .findFirst().ifPresent(node -> node.decNumDocuments()));
+                    .map(document -> document.get("_affinity").asText())
+                    .forEach(affinity -> nodes.stream()
+                            .filter(node -> node.getId().equals(affinity))
+                            .findFirst().ifPresent(node -> node.decNumDocuments()));
         } finally {
             manager.saveMetaData();
             manager.unlockMetaData();
         }
     }
 
-    
 }

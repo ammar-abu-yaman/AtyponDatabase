@@ -1,11 +1,10 @@
 package com.atypon.project.worker;
 
 import com.atypon.project.worker.core.DatabaseManager;
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.request.QueryType;
 import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -21,9 +20,9 @@ public class WorkerApplication {
 	static void loadData() throws JsonProcessingException {
 		DatabaseManager manager = DatabaseManager.getInstance();
 
-		DatabaseRequest request = DatabaseRequest.builder()
-				.originator(DatabaseRequest.Originator.Broadcaster)
-				.requestType(RequestType.CreateIndex)
+		Query request = Query.builder()
+				.originator(Query.Originator.Broadcaster)
+				.queryType(QueryType.CreateIndex)
 				.databaseName("Books")
 				.indexFieldName("price")
 				.build();
@@ -37,10 +36,10 @@ public class WorkerApplication {
 //				"{\"title\": \"C++\", \"price\": 200}",
 //				"{\"title\": \"Java\", \"price\": 200}",
 //		}) {
-//			chain.handleRequest(DatabaseRequest
+//			chain.handleRequest(Query
 //					.builder()
 //					.databaseName("Books")
-//					.requestType(RequestType.AddDocument)
+//					.queryType(QueryType.AddDocument)
 //					.payload(new ObjectMapper().readTree(content))
 //					.build()
 //			);

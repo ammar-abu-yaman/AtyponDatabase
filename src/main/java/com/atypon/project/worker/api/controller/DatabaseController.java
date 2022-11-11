@@ -1,13 +1,11 @@
 package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
-import com.atypon.project.worker.request.DatabaseRequest;
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.request.QueryType;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import javax.servlet.http.HttpSession;
 
 @RestController
 public class DatabaseController {
@@ -16,9 +14,9 @@ public class DatabaseController {
 
     @PostMapping("/database/create/{database}")
     public String createDatabase(@PathVariable("database") String databaseName) {
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.User)
-                .requestType(RequestType.CreateDatabase)
+        Query request = Query.builder()
+                .originator(Query.Originator.User)
+                .queryType(QueryType.CreateDatabase)
                 .databaseName(databaseName)
                 .build();
         manager.getHandlersFactory().getHandler(request).handleRequest(request);
@@ -27,9 +25,9 @@ public class DatabaseController {
 
     @PostMapping("/database/delete/{database}")
     public String deleteDatabase(@PathVariable("database") String databaseName) {
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.User)
-                .requestType(RequestType.DeleteDatabase)
+        Query request = Query.builder()
+                .originator(Query.Originator.User)
+                .queryType(QueryType.DeleteDatabase)
                 .databaseName(databaseName)
                 .build();
         manager.getHandlersFactory().getHandler(request).handleRequest(request);

@@ -1,8 +1,9 @@
 package com.atypon.project.worker.lock;
 
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.request.QueryType;
 import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
+
 import java.util.concurrent.locks.Lock;
 
 public class LockHandler extends RequestHandler {
@@ -14,8 +15,8 @@ public class LockHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(DatabaseRequest request) {
-        switch (request.getRequestType()) {
+    public void handleRequest(Query request) {
+        switch (request.getQueryType()) {
             case FindDocument:
             case FindDocuments:
                 handleRead(request);
@@ -34,7 +35,7 @@ public class LockHandler extends RequestHandler {
         }
     }
 
-    private void handleLogin(DatabaseRequest request) {
+    private void handleLogin(Query request) {
         Lock lock = lockService.getLock("_Users").readLock();
         try {
             System.out.println("locked for login");
@@ -47,7 +48,7 @@ public class LockHandler extends RequestHandler {
         }
     }
 
-    private void handleRead(DatabaseRequest request) {
+    private void handleRead(Query request) {
         Lock globalLock = lockService.getGlobalLock().readLock();
         Lock lock = null;
         globalLock.lock();
@@ -70,7 +71,7 @@ public class LockHandler extends RequestHandler {
 
     }
 
-    private void handleWrite(DatabaseRequest request) {
+    private void handleWrite(Query request) {
         Lock globalLock = lockService.getGlobalLock().readLock();
         Lock lock = null;
         globalLock.lock();
@@ -92,18 +93,18 @@ public class LockHandler extends RequestHandler {
         }
     }
 
-    private void handleSensitive(DatabaseRequest request) {
+    private void handleSensitive(Query request) {
         Lock globalLock = lockService.getGlobalLock().writeLock();
         globalLock.lock();
         try {
             System.out.println("lock for sensitive");
             passRequest(request);
-            if (request.getStatus() == DatabaseRequest.Status.Rejected)
+            if (request.getStatus() == Query.Status.Rejected)
                 return;
-            if (request.getRequestType() == RequestType.CreateDatabase) {
+            if (request.getQueryType() == QueryType.CreateDatabase) {
                 lockService.createLock(request.getDatabaseName());
             }
-            if (request.getRequestType() == RequestType.DeleteDatabase)
+            if (request.getQueryType() == QueryType.DeleteDatabase)
                 lockService.deleteLock(request.getDatabaseName());
         } finally {
             System.out.println("unlock for sensitive");

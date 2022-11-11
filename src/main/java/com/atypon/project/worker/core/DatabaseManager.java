@@ -5,10 +5,9 @@ import com.atypon.project.worker.cache.CacheService;
 import com.atypon.project.worker.database.DatabaseService;
 import com.atypon.project.worker.index.IndexService;
 import com.atypon.project.worker.lock.LockService;
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
 import com.atypon.project.worker.request.HandlerFactory;
-import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.QueryType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -91,10 +90,10 @@ public class DatabaseManager {
                     result.put("_id", name);
                     result.put("_affinity", name);
                     json = mapper.valueToTree(result);
-                    DatabaseRequest request = DatabaseRequest.builder()
-                            .originator(DatabaseRequest.Originator.Broadcaster)
+                    Query request = Query.builder()
+                            .originator(Query.Originator.Broadcaster)
                             .databaseName("_Users")
-                            .requestType(RequestType.AddDocument)
+                            .queryType(QueryType.AddDocument)
                             .payload(json)
                             .build();
                     handlersFactory.getHandler(request).handleRequest(request);

@@ -2,8 +2,8 @@ package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Node;
-import com.atypon.project.worker.request.DatabaseRequest;
-import com.atypon.project.worker.request.RequestType;
+import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.request.QueryType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,9 +27,9 @@ public class InternalController {
             @PathVariable("database") String databaseName) {
         if (!validateNode(httpRequest))
             return "Rejected";
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.Broadcaster)
-                .requestType(RequestType.AddDocument)
+        Query request = Query.builder()
+                .originator(Query.Originator.Broadcaster)
+                .queryType(QueryType.AddDocument)
                 .databaseName(databaseName)
                 .payload(mapper.valueToTree(requestBody))
                 .build();
@@ -43,9 +43,9 @@ public class InternalController {
             @PathVariable("database") String databaseName) {
         if (!validateNode(httpRequest))
             return "Rejected";
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.Broadcaster)
-                .requestType(RequestType.DeleteDocument)
+        Query request = Query.builder()
+                .originator(Query.Originator.Broadcaster)
+                .queryType(QueryType.DeleteDocument)
                 .databaseName(databaseName)
                 .payload(mapper.valueToTree(requestBody))
                 .build();
@@ -55,44 +55,44 @@ public class InternalController {
 
     @PostMapping("/_internal/create_database/{database}")
     public String createDatabase(HttpServletRequest httpRequest, @PathVariable("database") String databaseName) {
-        return databaseHelper(httpRequest, databaseName, RequestType.CreateDatabase);
+        return databaseHelper(httpRequest, databaseName, QueryType.CreateDatabase);
     }
 
     @PostMapping("/_internal/delete_database/{database}")
     public String deleteDatabase(HttpServletRequest httpRequest, @PathVariable("database") String databaseName) {
-        return databaseHelper(httpRequest, databaseName, RequestType.DeleteDatabase);
+        return databaseHelper(httpRequest, databaseName, QueryType.DeleteDatabase);
     }
 
     @PostMapping("/_internal/create_index/{database}/{index}")
     public String createIndex(HttpServletRequest httpRequest, @PathVariable("database") String database,
             @PathVariable("index") String index) {
-        return indexHelper(httpRequest, database, index, RequestType.CreateIndex);
+        return indexHelper(httpRequest, database, index, QueryType.CreateIndex);
     }
 
     @PostMapping("/_internal/delete_index/{database}/{index}")
     public String deleteIndex(HttpServletRequest httpRequest, @PathVariable("database") String database,
             @PathVariable("index") String index) {
-        return indexHelper(httpRequest, database, index, RequestType.DeleteIndex);
+        return indexHelper(httpRequest, database, index, QueryType.DeleteIndex);
     }
 
-    private String databaseHelper(HttpServletRequest httpRequest, String databaseName, RequestType type) {
+    private String databaseHelper(HttpServletRequest httpRequest, String databaseName, QueryType type) {
         if (!validateNode(httpRequest))
             return "Rejected";
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.Broadcaster)
-                .requestType(type)
+        Query request = Query.builder()
+                .originator(Query.Originator.Broadcaster)
+                .queryType(type)
                 .databaseName(databaseName)
                 .build();
         manager.getHandlersFactory().getHandler(request).handleRequest(request);
         return "Accepted";
     }
 
-    private String indexHelper(HttpServletRequest httpRequest, String database, String index, RequestType type) {
+    private String indexHelper(HttpServletRequest httpRequest, String database, String index, QueryType type) {
         if (!validateNode(httpRequest))
             return "Rejected";
-        DatabaseRequest request = DatabaseRequest.builder()
-                .originator(DatabaseRequest.Originator.Broadcaster)
-                .requestType(type)
+        Query request = Query.builder()
+                .originator(Query.Originator.Broadcaster)
+                .queryType(type)
                 .databaseName(database)
                 .indexFieldName(index)
                 .build();

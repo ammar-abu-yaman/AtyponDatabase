@@ -1,6 +1,6 @@
 package com.atypon.project.worker.request;
 
-public enum RequestType {
+public enum QueryType {
     CreateDatabase,
     DeleteDatabase,
     CreateIndex,

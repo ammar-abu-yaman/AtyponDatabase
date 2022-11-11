@@ -2,9 +2,9 @@ package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.request.QueryType;
 import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.RequestType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,22 +24,22 @@ public class DocumentController {
 
     @GetMapping(value="/document/find/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String findDocument(@RequestBody(required = false) Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
-        return findDocumentHelper(requestBody, databaseName, RequestType.FindDocument);
+        return findDocumentHelper(requestBody, databaseName, QueryType.FindDocument);
     }
 
     @GetMapping(value="/document/finds/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String findDocuments(@RequestBody(required = false) Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
-        return findDocumentHelper(requestBody, databaseName, RequestType.FindDocuments);
+        return findDocumentHelper(requestBody, databaseName, QueryType.FindDocuments);
     }
 
 
-    private String findDocumentHelper( Map<String, Object> requestBody, String databaseName, RequestType type) {
+    private String findDocumentHelper( Map<String, Object> requestBody, String databaseName, QueryType type) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
+        Query.DatabaseRequestBuilder builder = Query
                 .builder()
-                .originator(DatabaseRequest.Originator.User)
+                .originator(Query.Originator.User)
                 .databaseName(databaseName)
-                .requestType(type);
+                .queryType(type);
 
         if(json.has("filter")) {
             Optional<String> err = getFilterErrorMessage(json);
@@ -55,7 +55,7 @@ public class DocumentController {
             builder.requiredProperties(getRequiredProperties(json));
         }
 
-        DatabaseRequest request = builder.build();
+        Query request = builder.build();
         RequestHandler handler = manager.getHandlersFactory().getHandler(request);
         handler.handleRequest(request);
         return request.getStatus() + " => " + request.getRequestOutput();
@@ -64,17 +64,17 @@ public class DocumentController {
     @PostMapping(value = "/document/add/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String addDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
+        Query.DatabaseRequestBuilder builder = Query
                 .builder()
-                .originator(DatabaseRequest.Originator.User)
+                .originator(Query.Originator.User)
                 .databaseName(databaseName)
-                .requestType(RequestType.AddDocument);
+                .queryType(QueryType.AddDocument);
 
         if(!json.has("payload") || !json.get("payload").isObject()) {
             return "Payload field is invalid";
         }
 
-        DatabaseRequest request = builder.payload(json.get("payload")).build();
+        Query request = builder.payload(json.get("payload")).build();
         RequestHandler handler = manager.getHandlersFactory().getHandler(request);
         handler.handleRequest(request);
         return request.getStatus() + " => " + request.getRequestOutput();
@@ -83,11 +83,11 @@ public class DocumentController {
     @PostMapping(value = "/document/update/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String updateDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
+        Query.DatabaseRequestBuilder builder = Query
                 .builder()
-                .originator(DatabaseRequest.Originator.User)
+                .originator(Query.Originator.User)
                 .databaseName(databaseName)
-                .requestType(RequestType.UpdateDocument);
+                .queryType(QueryType.UpdateDocument);
 
         if(!json.has("payload") || !json.get("payload").isObject() || json.get("payload").size() != 1) {
             return "Payload field is invalid";
@@ -97,7 +97,7 @@ public class DocumentController {
         if(filterError.isPresent()) {
             return filterError.get();
         }
-        DatabaseRequest request = builder
+        Query request = builder
                 .payload(json.get("payload"))
                 .filterKey(getFilter(json))
                 .build();
@@ -110,17 +110,17 @@ public class DocumentController {
     @PostMapping(value = "/document/delete/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String deleteDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        DatabaseRequest.DatabaseRequestBuilder builder = DatabaseRequest
+        Query.DatabaseRequestBuilder builder = Query
                 .builder()
-                .originator(DatabaseRequest.Originator.User)
+                .originator(Query.Originator.User)
                 .databaseName(databaseName)
-                .requestType(RequestType.DeleteDocument);
+                .queryType(QueryType.DeleteDocument);
 
         Optional<String> filterError = getFilterErrorMessage(json);
         if(filterError.isPresent()) {
             return filterError.get();
         }
-        DatabaseRequest request = builder
+        Query request = builder
                 .filterKey(getFilter(json))
                 .build();
 

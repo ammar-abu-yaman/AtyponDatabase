@@ -1,9 +1,9 @@
 package com.atypon.project.worker.database;
 
-import com.atypon.project.worker.request.DatabaseRequest;
+import com.atypon.project.worker.request.Query;
 
 public interface IdCreator {
 
-    public String createId(DatabaseRequest request);
+    public String createId(Query request);
 
 }

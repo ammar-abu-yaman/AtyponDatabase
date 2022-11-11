@@ -1,11 +1,12 @@
 package com.atypon.project.worker.index;
 
+import com.atypon.project.worker.request.Query;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.database.DatabaseService;
-import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.request.Query.Originator;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,8 +20,8 @@ public class IndexHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(DatabaseRequest request) {
-        switch (request.getRequestType()) {
+    public void handleRequest(Query request) {
+        switch (request.getQueryType()) {
             case FindDocument:
             case FindDocuments:
                 handleRead(request);
@@ -49,82 +50,84 @@ public class IndexHandler extends RequestHandler {
         }
     }
 
-    private void handleRead(DatabaseRequest request) {
+    private void handleRead(Query request) {
         Entry<String, JsonNode> filterKey = request.getFilterKey();
-        if(filterKey == null) {
+        if (filterKey == null) {
             passRequest(request);
             return;
         }
 
         IndexKey key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
-        if(indexService.containsIndex(key))
+        if (indexService.containsIndex(key))
             request.setIndex(indexService.getIndex(key).get());
         passRequest(request);
     }
 
-    private void handleAddDocument(DatabaseRequest request) {
+    private void handleAddDocument(Query request) {
         passRequest(request);
-        if(request.getStatus() == DatabaseRequest.Status.Rejected)
+        if (request.getStatus() == Query.Status.Rejected)
             return;
         Map<String, Index> affectedIndexes = getAffectedIndexes(request);
         String documentIndex = request.getUsedDocuments().stream().collect(Collectors.toList()).get(0);
-        for(Map.Entry<String, Index> entry: affectedIndexes.entrySet()) {
+        for (Map.Entry<String, Index> entry : affectedIndexes.entrySet()) {
             entry.getValue().add(request.getPayload().get(entry.getKey()), documentIndex);
         }
 
-        for(Map.Entry<String, Index> entry: affectedIndexes.entrySet()) {
+        for (Map.Entry<String, Index> entry : affectedIndexes.entrySet()) {
             indexService.saveToFile(new IndexKey(request.getDatabaseName(), entry.getKey()), entry.getValue());
         }
     }
 
-    private void handleUpdate(DatabaseRequest request) {
+    private void handleUpdate(Query request) {
         Entry<String, JsonNode> filterKey = request.getFilterKey();
 
         IndexKey key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
 
-        if(indexService.containsIndex(key)) {
+        if (indexService.containsIndex(key)) {
             Index index = indexService.getIndex(key).get();
             request.setIndex(index);
         }
 
         passRequest(request);
-        if(request.getStatus() == DatabaseRequest.Status.Accepted)
+        if (request.getStatus() == Query.Status.Accepted)
             recalculateIndexes(request.getDatabaseName());
     }
 
-    private void handleDelete(DatabaseRequest request) {
+    private void handleDelete(Query request) {
         Entry<String, JsonNode> filterKey = request.getFilterKey();
 
-        IndexKey key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
+        IndexKey key = null;
+        if (request.getOriginator() == Originator.User)
+            key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
 
-        if(indexService.containsIndex(key)) {
+        if (indexService.containsIndex(key)) {
             Index index = indexService.getIndex(key).get();
             request.setIndex(index);
         }
 
         passRequest(request);
-        if(request.getStatus() == DatabaseRequest.Status.Accepted)
+        if (request.getStatus() == Query.Status.Accepted)
             recalculateIndexes(request.getDatabaseName());
     }
 
-    private void handleDeleteDatabase(DatabaseRequest request) {
+    private void handleDeleteDatabase(Query request) {
         passRequest(request);
-        if(request.getStatus() == DatabaseRequest.Status.Rejected)
+        if (request.getStatus() == Query.Status.Rejected)
             return;
         indexService.deleteDatabaseIndices(request.getDatabaseName());
     }
 
-    private void handleCreateIndex(DatabaseRequest request) {
+    private void handleCreateIndex(Query request) {
         DatabaseService databaseService = getDatabaseService();
         IndexKey key = createKey(request);
-        if(indexService.containsIndex(key)) {
-            request.setStatus(DatabaseRequest.Status.Rejected);
+        if (indexService.containsIndex(key)) {
+            request.setStatus(Query.Status.Rejected);
             request.getRequestOutput().append("Index already exists");
             return;
         }
 
-        if(!databaseService.containsDatabase(request.getDatabaseName())) {
-            request.setStatus(DatabaseRequest.Status.Rejected);
+        if (!databaseService.containsDatabase(request.getDatabaseName())) {
+            request.setStatus(Query.Status.Rejected);
             request.getRequestOutput().append("Database Doesn't exist");
             return;
         }
@@ -132,14 +135,14 @@ public class IndexHandler extends RequestHandler {
         indexService.createIndex(key);
         passRequest(request);
 
-        request.setStatus(DatabaseRequest.Status.Accepted);
+        request.setStatus(Query.Status.Accepted);
         return;
     }
 
-    private void handleDeleteIndex(DatabaseRequest request) {
+    private void handleDeleteIndex(Query request) {
         IndexKey key = createKey(request);
-        if(!indexService.containsIndex(key)) {
-            request.setStatus(DatabaseRequest.Status.Rejected);
+        if (!indexService.containsIndex(key)) {
+            request.setStatus(Query.Status.Rejected);
             request.getRequestOutput().append("Index doesn't exist");
             return;
         }
@@ -147,30 +150,28 @@ public class IndexHandler extends RequestHandler {
         indexService.deleteIndex(key);
         passRequest(request);
 
-        request.setStatus(DatabaseRequest.Status.Accepted);
+        request.setStatus(Query.Status.Accepted);
     }
 
-
-    private Map<String, Index> getAffectedIndexes(DatabaseRequest request) {
+    private Map<String, Index> getAffectedIndexes(Query request) {
         Map<String, Index> indexes = new HashMap<>();
-        Iterator<String> iterator =  request.getPayload().fieldNames();
-        while(iterator.hasNext()) {
+        Iterator<String> iterator = request.getPayload().fieldNames();
+        while (iterator.hasNext()) {
             String fieldName = iterator.next();
             IndexKey key = new IndexKey(request.getDatabaseName(), fieldName);
-            if(indexService.containsIndex(key)) {
+            if (indexService.containsIndex(key)) {
                 indexes.put(fieldName, indexService.getIndex(key).get());
             }
         }
         return indexes;
     }
 
-
     private void recalculateIndexes(String databaseName) {
         {
             System.out.println("recalculating " + databaseName + " indexes");
         }
-        for(IndexKey key: indexService.getIndexesKeys()) {
-            if(!key.getDatabaseName().equals(databaseName))
+        for (IndexKey key : indexService.getIndexesKeys()) {
+            if (!key.getDatabaseName().equals(databaseName))
                 continue;
             Index index = indexService.getIndex(key).get();
             index.clear();
@@ -179,9 +180,7 @@ public class IndexHandler extends RequestHandler {
         }
     }
 
-
-
-    private IndexKey createKey(DatabaseRequest request) {
+    private IndexKey createKey(Query request) {
         return new IndexKey(request.getDatabaseName(), request.getIndexFieldName());
     }
 
