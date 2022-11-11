@@ -3,13 +3,16 @@ package com.atypon.project.worker.database;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
 import com.atypon.project.worker.core.Node;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.request.DatabaseRequest;
 import com.atypon.project.worker.request.RequestHandler;
 import com.atypon.project.worker.request.RequestType;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -68,10 +71,17 @@ public class DatabaseHandler extends RequestHandler {
             return;
         }
         databaseService.createDatabase(request.getDatabaseName());
+        passRequest(request);
     }
 
     private void deleteDatabase(DatabaseRequest request) {
+        Database database = databaseService.getDatabase(request.getDatabaseName());
+        List<String> ids = database.getAllDocuments()
+                .map(document -> document.get("affinity").asText())
+                .collect(Collectors.toList());
+        decrementAffinity(database, ids);
         databaseService.deleteDatabase(request.getDatabaseName());
+        passRequest(request);
     }
 
     private void addDocument(DatabaseRequest request) {
@@ -139,6 +149,7 @@ public class DatabaseHandler extends RequestHandler {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         Set<String> usedDocuments = new HashSet<>();
 
+
         indexRequest(request, database)
                 .stream()
                 .limit(1)
@@ -147,6 +158,8 @@ public class DatabaseHandler extends RequestHandler {
                     usedDocuments.add(documentIndex);
                 });
         request.setUsedDocuments(usedDocuments);
+        passRequest(request);
+        decrementAffinity(database, usedDocuments);
     }
 
     private void updateDocument(DatabaseRequest request) {
@@ -163,6 +176,19 @@ public class DatabaseHandler extends RequestHandler {
     }
     
     private List<String> indexRequest(DatabaseRequest request, Database database) {
+        // broadcaster provides the ids of the documents to be deleted
+        if(request.getOriginator() == DatabaseRequest.Originator.Broadcaster) {
+            List<String> ids = null;
+            try {
+                ids = new ObjectMapper().readValue("_ids", TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
+            } catch (JsonMappingException e) {
+                e.printStackTrace();
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+            return ids.stream().filter(id -> database.contains(id)).collect(Collectors.toList());
+        }
+
         if(request.getIndex() != null) {
             {
                 System.out.println("using index for " + request.getFilterKey() );
@@ -230,31 +256,30 @@ public class DatabaseHandler extends RequestHandler {
                 final String nid = nodeId;
                 nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.incNumDocuments());
             }
-            manager.saveMetaData();
         } finally {
+            manager.saveMetaData();
             manager.unlockMetaData();
         }
 
     }
 
-    private void decrementAffinity(String nodeId) {
+    private void decrementAffinity(Database database, Collection<String> documentIndexes) {
         manager.lockMetaData();
 
         try {
             MetaData metaData = manager.getConfiguration();
             List<Node> nodes = metaData.getNodes();
-            if(nodeId.equals(metaData.getNodeId())) {
-                manager.getConfiguration().decNumDocuments();
-            } else {
-                final String nid = nodeId;
-                nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.decNumDocuments());
-            }
+            database
+                    .getDocuments(documentIndexes)
+                    .map(document -> document.get("affinity").asText())
+                    .forEach(affinity ->
+                            nodes.stream()
+                                    .filter(node -> node.getId().equals(affinity))
+                                    .findFirst().ifPresent(node -> node.decNumDocuments()));
         } finally {
+            manager.saveMetaData();
             manager.unlockMetaData();
         }
-
-
-        manager.saveMetaData();
     }
 
     

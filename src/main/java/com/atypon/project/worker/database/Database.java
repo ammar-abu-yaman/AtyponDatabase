@@ -32,4 +32,5 @@ public abstract class Database {
     public abstract Stream<JsonNode> getDocuments(Collection<String> docIds);
     public abstract Stream<JsonNode> getDocuments(Stream<String> documentIndices);
     public abstract Stream<JsonNode> getAllDocuments();
+    public abstract boolean contains(String documentIndex);
 }

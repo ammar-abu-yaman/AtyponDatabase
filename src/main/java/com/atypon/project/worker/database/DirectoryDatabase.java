@@ -119,4 +119,10 @@ public class DirectoryDatabase extends Database {
         return null;
     }
 
+    @Override
+    public boolean contains(String documentIndex) {
+        File documentFile = databaseDirectory.toPath().resolve(documentIndex + ".json").toFile();
+        return documentFile.exists();
+    }
+
 }

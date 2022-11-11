@@ -194,7 +194,6 @@ class BTree <K extends Comparable<K>, V> {
 
             // The key to be removed is present in this node
             if (idx < n && keys[idx].getKey().equals(key)) {
-                //TODO: Remove here
                 
                 // If the node is a leaf node - removeFromLeaf is called
                 // Otherwise, removeFromNonLeaf function is called

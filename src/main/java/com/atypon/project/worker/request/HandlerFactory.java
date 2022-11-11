@@ -24,27 +24,43 @@ public class HandlerFactory {
 
     private RequestHandler getUserHandler(DatabaseRequest request) {
         RequestHandler handlerChain = manager.getLockService().getHandler();
+
+        // case of a login request
         if(request.getRequestType() == RequestType.Login) {
             handlerChain.setNextHandler(new LoginHandler());
             return handlerChain;
         }
 
-        handlerChain
-                .setNextHandler(manager.getCacheService().getHandler())
-                .setNextHandler(manager.getIndexService().getHandler())
-                .setNextHandler(manager.getDatabaseService().getHandler())
-                .setNextHandler(new BroadcastHandler());
-
-
+        // case of creating of deleting indexes
+        if(oneOf(request, RequestType.CreateIndex, RequestType.DeleteIndex)) {
+            handlerChain
+                    .setNextHandler(manager.getCacheService().getHandler())
+                    .setNextHandler(manager.getIndexService().getHandler())
+                    .setNextHandler(new BroadcastHandler());
+        } else {
+            handlerChain
+                    .setNextHandler(manager.getCacheService().getHandler())
+                    .setNextHandler(manager.getIndexService().getHandler())
+                    .setNextHandler(manager.getDatabaseService().getHandler())
+                    .setNextHandler(new BroadcastHandler());
+        }
         return handlerChain;
     }
 
     private RequestHandler getBroadcastHandler(DatabaseRequest request) {
         RequestHandler handlerChain = manager.getLockService().getHandler();
-        handlerChain
-                .setNextHandler(manager.getCacheService().getHandler())
-                .setNextHandler(manager.getIndexService().getHandler())
-                .setNextHandler(manager.getDatabaseService().getHandler());
+
+        // case of creating of deleting indexes
+        if(oneOf(request, RequestType.CreateIndex, RequestType.DeleteIndex)) {
+            handlerChain
+                    .setNextHandler(manager.getCacheService().getHandler())
+                    .setNextHandler(manager.getIndexService().getHandler());
+        } else {
+            handlerChain
+                    .setNextHandler(manager.getCacheService().getHandler())
+                    .setNextHandler(manager.getIndexService().getHandler())
+                    .setNextHandler(manager.getDatabaseService().getHandler());
+        }
         return handlerChain;
     }
 
@@ -54,8 +70,8 @@ public class HandlerFactory {
     }
 
 
-    private boolean oneOf(RequestType type, RequestType... types) {
-        return Arrays.stream(types).anyMatch(t -> type == t);
+    private boolean oneOf(DatabaseRequest request, RequestType... types) {
+        return Arrays.stream(types).anyMatch(t -> request.getRequestType() == t);
     }
 
 

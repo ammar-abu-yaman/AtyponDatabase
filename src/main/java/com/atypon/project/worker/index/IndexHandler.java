@@ -130,8 +130,7 @@ public class IndexHandler extends RequestHandler {
         }
 
         indexService.createIndex(key);
-
-        //TODO: add broadcasting
+        passRequest(request);
 
         request.setStatus(DatabaseRequest.Status.Accepted);
         return;
@@ -146,9 +145,9 @@ public class IndexHandler extends RequestHandler {
         }
 
         indexService.deleteIndex(key);
-        request.setStatus(DatabaseRequest.Status.Accepted);
+        passRequest(request);
 
-        //TODO: add broadcasting
+        request.setStatus(DatabaseRequest.Status.Accepted);
     }
 
 
