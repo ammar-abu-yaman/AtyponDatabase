@@ -19,7 +19,7 @@ public class IndexService {
     public IndexService(MetaData metaData) {
         this.indexes = Collections.synchronizedSet(new HashSet<>());
         this.indexesDirectory = Paths.get(metaData.getIndexesDirectory()).toFile();
-        if(!indexesDirectory.exists())
+        if (!indexesDirectory.exists())
             indexesDirectory.mkdirs();
         createInitialIndexes(metaData);
     }
@@ -49,12 +49,10 @@ public class IndexService {
     }
 
     public Optional<Index> getIndex(IndexKey key) {
-        if(!containsIndex(key))
+        if (!containsIndex(key))
             return null;
         return Optional.of(loadIndexFromDisk(key));
     }
-
-
 
     public void createIndex(IndexKey key) {
         Index index = new BTreeIndex(5, new JsonComparator());
@@ -101,7 +99,7 @@ public class IndexService {
     }
 
     public void saveToFile(IndexKey key, Index index) {
-        try(ObjectOutputStream stream = new ObjectOutputStream(
+        try (ObjectOutputStream stream = new ObjectOutputStream(
                 new FileOutputStream(indexesDirectory.toPath().resolve(key.getName() + ".dat").toFile()))) {
             stream.writeObject(index);
         } catch (FileNotFoundException e) {
@@ -129,7 +127,7 @@ public class IndexService {
     }
 
     private Index loadIndexFromDisk(IndexKey key) {
-        try(ObjectInputStream stream = new ObjectInputStream(
+        try (ObjectInputStream stream = new ObjectInputStream(
                 new FileInputStream(indexesDirectory.toPath().resolve(key.getName() + ".dat").toFile()))) {
             Index index = (Index) stream.readObject();
             return index;
@@ -143,10 +141,7 @@ public class IndexService {
         return null;
     }
 
-
     public RequestHandler getHandler() {
         return new IndexHandler(this);
     }
-
-
 }

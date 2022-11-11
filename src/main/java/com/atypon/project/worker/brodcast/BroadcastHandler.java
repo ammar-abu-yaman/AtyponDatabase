@@ -33,6 +33,7 @@ public class BroadcastHandler extends RequestHandler {
                 return;
             case DeleteDocument:
                 deleteDocument(request);
+                return;
             case DeleteDatabase:
                 deleteDatabase(request);
                 return;
@@ -44,7 +45,7 @@ public class BroadcastHandler extends RequestHandler {
                 return;
             case DeleteIndex:
                 deleteIndex(request);
-
+                return;
         }
     }
 
@@ -130,6 +131,5 @@ public class BroadcastHandler extends RequestHandler {
         thread.setDaemon(true);
         thread.start();
     }
-
 
 }

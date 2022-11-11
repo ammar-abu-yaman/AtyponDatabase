@@ -23,13 +23,29 @@ public class InternalController {
 
     @PostMapping("/_internal/add_document/{database}")
     public String addDocument(HttpServletRequest httpRequest,
-                              @RequestBody Map<String, Object> requestBody,
-                              @PathVariable("database") String databaseName) {
-        if(!validateNode(httpRequest))
+            @RequestBody Map<String, Object> requestBody,
+            @PathVariable("database") String databaseName) {
+        if (!validateNode(httpRequest))
             return "Rejected";
         DatabaseRequest request = DatabaseRequest.builder()
                 .originator(DatabaseRequest.Originator.Broadcaster)
                 .requestType(RequestType.AddDocument)
+                .databaseName(databaseName)
+                .payload(mapper.valueToTree(requestBody))
+                .build();
+        manager.getHandlersFactory().getHandler(request).handleRequest(request);
+        return "Accepted";
+    }
+
+    @PostMapping("/_internal/delete_document/{database}")
+    public String deleteDocument(HttpServletRequest httpRequest,
+            @RequestBody Map<String, Object> requestBody,
+            @PathVariable("database") String databaseName) {
+        if (!validateNode(httpRequest))
+            return "Rejected";
+        DatabaseRequest request = DatabaseRequest.builder()
+                .originator(DatabaseRequest.Originator.Broadcaster)
+                .requestType(RequestType.DeleteDocument)
                 .databaseName(databaseName)
                 .payload(mapper.valueToTree(requestBody))
                 .build();
@@ -48,17 +64,19 @@ public class InternalController {
     }
 
     @PostMapping("/_internal/create_index/{database}/{index}")
-    public String createIndex(HttpServletRequest httpRequest, @PathVariable("database") String database, @PathVariable("index") String index) {
+    public String createIndex(HttpServletRequest httpRequest, @PathVariable("database") String database,
+            @PathVariable("index") String index) {
         return indexHelper(httpRequest, database, index, RequestType.CreateIndex);
     }
 
     @PostMapping("/_internal/delete_index/{database}/{index}")
-    public String deleteIndex(HttpServletRequest httpRequest, @PathVariable("database") String database, @PathVariable("index") String index) {
+    public String deleteIndex(HttpServletRequest httpRequest, @PathVariable("database") String database,
+            @PathVariable("index") String index) {
         return indexHelper(httpRequest, database, index, RequestType.DeleteIndex);
     }
 
     private String databaseHelper(HttpServletRequest httpRequest, String databaseName, RequestType type) {
-        if(!validateNode(httpRequest))
+        if (!validateNode(httpRequest))
             return "Rejected";
         DatabaseRequest request = DatabaseRequest.builder()
                 .originator(DatabaseRequest.Originator.Broadcaster)
@@ -70,7 +88,7 @@ public class InternalController {
     }
 
     private String indexHelper(HttpServletRequest httpRequest, String database, String index, RequestType type) {
-        if(!validateNode(httpRequest))
+        if (!validateNode(httpRequest))
             return "Rejected";
         DatabaseRequest request = DatabaseRequest.builder()
                 .originator(DatabaseRequest.Originator.Broadcaster)
