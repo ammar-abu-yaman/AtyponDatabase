@@ -1,9 +1,9 @@
 package com.atypon.project.worker.api.controller;
 
-import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.user.User;
 import com.atypon.project.worker.core.DatabaseManager;
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.QueryType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +25,7 @@ public class AuthenticationController {
                 .queryType(QueryType.Login)
                 .payload(mapper.valueToTree(credentials))
                 .build();
-        DatabaseManager.getInstance().getHandlersFactory().getHandler(request).handleRequest(request);
+        DatabaseManager.getInstance().getHandlersFactory().getHandler(request).handle(request);
         if(request.getStatus() == Query.Status.Accepted) {
             JsonNode json = mapper.readTree(request.getRequestOutput().toString());
             User user = new User(

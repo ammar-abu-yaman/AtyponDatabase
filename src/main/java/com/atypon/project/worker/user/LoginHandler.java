@@ -5,8 +5,8 @@ import com.atypon.project.worker.database.Database;
 import com.atypon.project.worker.index.BTreeIndex;
 import com.atypon.project.worker.index.Index;
 import com.atypon.project.worker.index.IndexKey;
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryHandler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,10 +16,10 @@ import org.mindrot.jbcrypt.BCrypt;
 import java.util.Optional;
 
 
-public class LoginHandler extends RequestHandler {
+public class LoginHandler extends QueryHandler {
 
     @Override
-    public void handleRequest(Query request) {
+    public void handle(Query request) {
         JsonNode credentials = request.getPayload();
         Optional<User> user = validateUser(credentials);
         if(user.isPresent()) {

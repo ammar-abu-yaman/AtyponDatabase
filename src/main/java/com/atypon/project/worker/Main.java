@@ -1,14 +1,14 @@
 package com.atypon.project.worker;
 
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.index.BTreeIndex;
 import com.atypon.project.worker.index.JsonComparator;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.QueryHandler;
 
 import java.util.function.Function;
 
@@ -22,7 +22,7 @@ public class Main {
     public static void testCache() throws JsonProcessingException {
         loadData();
         DatabaseManager manager = DatabaseManager.getInstance();
-        RequestHandler chain = manager.getHandlersFactory().getHandler(null);
+        QueryHandler chain = manager.getHandlersFactory().getHandler(null);
 
         Function<Integer, Query> view = (i) -> {
             try {
@@ -31,7 +31,7 @@ public class Main {
                         .databaseName("Books")
                         .filterKey(new Entry<>("price", new ObjectMapper().readTree("13.5")))
                         .build();
-                chain.handleRequest(request);
+                chain.handle(request);
                 System.out.println(request.getRequestOutput() + "\n---------");
             } catch (JsonProcessingException e) {
                 e.printStackTrace();
@@ -42,7 +42,7 @@ public class Main {
         view.apply(1);
         view.apply(1);
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.DeleteDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"Jamaica\"")))
@@ -51,7 +51,7 @@ public class Main {
         view.apply(1);
 
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.UpdateDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"C++\"")))
@@ -61,7 +61,7 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.DeleteDatabase)
                 .databaseName("Books")
                 .build()
@@ -69,7 +69,7 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.CreateDatabase)
                 .databaseName("Books")
                 .build()
@@ -83,7 +83,7 @@ public class Main {
     public static void testDatabase() throws JsonProcessingException {
         loadData();
         DatabaseManager manager = DatabaseManager.getInstance();
-        RequestHandler chain = manager.getHandlersFactory().getHandler(null);
+        QueryHandler chain = manager.getHandlersFactory().getHandler(null);
 
         Function<Integer, Query> view = (i) -> {
             try {
@@ -92,7 +92,7 @@ public class Main {
                         .databaseName("Books")
                         .filterKey(new Entry<>("price", new ObjectMapper().readTree("13.5")))
                         .build();
-                chain.handleRequest(request);
+                chain.handle(request);
                 System.out.println(request.getRequestOutput() + "\n---------");
             } catch (JsonProcessingException e) {
                 e.printStackTrace();
@@ -102,7 +102,7 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.DeleteDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"Jamaica\"")))
@@ -111,7 +111,7 @@ public class Main {
         view.apply(1);
 
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.UpdateDocument)
                 .databaseName("Books")
                 .filterKey(new Entry<>("title", new ObjectMapper().readTree("\"C++\"")))
@@ -121,7 +121,7 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.DeleteDatabase)
                 .databaseName("Books")
                 .build()
@@ -129,7 +129,7 @@ public class Main {
 
         view.apply(1);
 
-        chain.handleRequest(Query.builder()
+        chain.handle(Query.builder()
                 .queryType(QueryType.CreateDatabase)
                 .databaseName("Books")
                 .build()
@@ -148,8 +148,8 @@ public class Main {
                 .indexFieldName("price")
                 .build();
 
-        RequestHandler chain = manager.getHandlersFactory().getHandler(request);
-        chain.handleRequest(request);
+        QueryHandler chain = manager.getHandlersFactory().getHandler(request);
+        chain.handle(request);
 
         for(String content: new String[] {
                 "{\"title\": \"Harry Potter\", \"price\": 13.5}",
@@ -157,7 +157,7 @@ public class Main {
                 "{\"title\": \"C++\", \"price\": 200}",
                 "{\"title\": \"Java\", \"price\": 200}",
         }) {
-            chain.handleRequest(Query
+            chain.handle(Query
                     .builder()
                     .databaseName("Books")
                     .queryType(QueryType.AddDocument)

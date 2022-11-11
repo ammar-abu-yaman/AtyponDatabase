@@ -1,4 +1,4 @@
-package com.atypon.project.worker.request;
+package com.atypon.project.worker.query;
 
 public enum QueryType {
     CreateDatabase,

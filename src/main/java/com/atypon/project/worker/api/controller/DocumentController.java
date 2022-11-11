@@ -2,9 +2,9 @@ package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.QueryType;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryType;
+import com.atypon.project.worker.query.QueryHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,8 +56,8 @@ public class DocumentController {
         }
 
         Query request = builder.build();
-        RequestHandler handler = manager.getHandlersFactory().getHandler(request);
-        handler.handleRequest(request);
+        QueryHandler handler = manager.getHandlersFactory().getHandler(request);
+        handler.handle(request);
         return request.getStatus() + " => " + request.getRequestOutput();
     }
 
@@ -75,8 +75,8 @@ public class DocumentController {
         }
 
         Query request = builder.payload(json.get("payload")).build();
-        RequestHandler handler = manager.getHandlersFactory().getHandler(request);
-        handler.handleRequest(request);
+        QueryHandler handler = manager.getHandlersFactory().getHandler(request);
+        handler.handle(request);
         return request.getStatus() + " => " + request.getRequestOutput();
     }
 
@@ -102,8 +102,8 @@ public class DocumentController {
                 .filterKey(getFilter(json))
                 .build();
 
-        RequestHandler handler = manager.getHandlersFactory().getHandler(request);
-        handler.handleRequest(request);
+        QueryHandler handler = manager.getHandlersFactory().getHandler(request);
+        handler.handle(request);
         return request.getStatus() + " => " + request.getRequestOutput();
     }
 
@@ -124,8 +124,8 @@ public class DocumentController {
                 .filterKey(getFilter(json))
                 .build();
 
-        RequestHandler handler = manager.getHandlersFactory().getHandler(request);
-        handler.handleRequest(request);
+        QueryHandler handler = manager.getHandlersFactory().getHandler(request);
+        handler.handle(request);
         return request.getStatus() + " => " + request.getRequestOutput();
     }
 

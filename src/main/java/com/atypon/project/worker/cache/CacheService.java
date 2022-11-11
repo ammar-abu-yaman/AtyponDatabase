@@ -1,7 +1,7 @@
 package com.atypon.project.worker.cache;
 
 import com.atypon.project.worker.core.MetaData;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.QueryHandler;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +40,7 @@ public class CacheService {
         return caches.containsKey(databaseName);
     }
 
-    public RequestHandler getHandler() {
+    public QueryHandler getHandler() {
         return new CacheHandler(this);
     }
 

@@ -1,12 +1,12 @@
 package com.atypon.project.worker.lock;
 
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.QueryType;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryType;
+import com.atypon.project.worker.query.QueryHandler;
 
 import java.util.concurrent.locks.Lock;
 
-public class LockHandler extends RequestHandler {
+public class LockHandler extends QueryHandler {
 
     LockService lockService;
 
@@ -15,7 +15,7 @@ public class LockHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(Query request) {
+    public void handle(Query request) {
         switch (request.getQueryType()) {
             case FindDocument:
             case FindDocuments:
@@ -40,7 +40,7 @@ public class LockHandler extends RequestHandler {
         try {
             System.out.println("locked for login");
             lock.lock();
-            passRequest(request);
+            pass(request);
 
         } finally {
             System.out.println("unlocked login");
@@ -54,13 +54,13 @@ public class LockHandler extends RequestHandler {
         globalLock.lock();
         try {
             if (!lockService.containsLock(request.getDatabaseName())) {
-                passRequest(request);
+                pass(request);
                 return;
             }
             System.out.println("lock for reading");
             lock = lockService.getLock(request.getDatabaseName()).readLock();
             lock.lock();
-            passRequest(request);
+            pass(request);
         } finally {
             System.out.println("unlock for reading");
             globalLock.unlock();
@@ -78,12 +78,12 @@ public class LockHandler extends RequestHandler {
         try {
             System.out.println("lock for writing");
             if (!lockService.containsLock(request.getDatabaseName())) {
-                passRequest(request);
+                pass(request);
                 return;
             }
             lock = lockService.getLock(request.getDatabaseName()).writeLock();
             lock.lock();
-            passRequest(request);
+            pass(request);
         } finally {
             System.out.println("unlock for writing");
             globalLock.unlock();
@@ -98,7 +98,7 @@ public class LockHandler extends RequestHandler {
         globalLock.lock();
         try {
             System.out.println("lock for sensitive");
-            passRequest(request);
+            pass(request);
             if (request.getStatus() == Query.Status.Rejected)
                 return;
             if (request.getQueryType() == QueryType.CreateDatabase) {

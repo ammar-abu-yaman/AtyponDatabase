@@ -1,9 +1,9 @@
 package com.atypon.project.worker.cache;
 
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.QueryType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.query.Query;
 
 import java.util.Collections;
 import java.util.List;

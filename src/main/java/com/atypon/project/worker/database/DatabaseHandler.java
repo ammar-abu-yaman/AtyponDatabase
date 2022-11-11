@@ -3,22 +3,23 @@ package com.atypon.project.worker.database;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
 import com.atypon.project.worker.core.Node;
-import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.query.Query;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.query.QueryType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DatabaseHandler extends RequestHandler {
+public class DatabaseHandler extends QueryHandler {
 
     private DatabaseManager manager = DatabaseManager.getInstance();
     private DatabaseService databaseService;
@@ -30,7 +31,7 @@ public class DatabaseHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(Query request) {
+    public void handle(Query request) {
         if (request.getQueryType() != QueryType.CreateDatabase
                 && !databaseService.containsDatabase(request.getDatabaseName())) {
             request.getRequestOutput().append("No Such Database Exists");
@@ -70,7 +71,7 @@ public class DatabaseHandler extends RequestHandler {
             return;
         }
         databaseService.createDatabase(request.getDatabaseName());
-        passRequest(request);
+        pass(request);
     }
 
     private void deleteDatabase(Query request) {
@@ -80,7 +81,7 @@ public class DatabaseHandler extends RequestHandler {
                 .collect(Collectors.toList());
         decrementAffinity(database, ids);
         databaseService.deleteDatabase(request.getDatabaseName());
-        passRequest(request);
+        pass(request);
     }
 
     private void addDocument(Query request) {
@@ -110,7 +111,7 @@ public class DatabaseHandler extends RequestHandler {
             incrementAffinity(affinity);
         databaseService.getDatabase(request.getDatabaseName()).addDocument(documentIndex, payload);
         request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
-        passRequest(request);
+        pass(request);
     }
 
     private void findDocument(Query request) {
@@ -174,25 +175,79 @@ public class DatabaseHandler extends RequestHandler {
         }
 
         request.setUsedDocuments(usedDocuments);
-        passRequest(request);
+        pass(request);
     }
 
     private void updateDocument(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
-        Set<String> usedDocuments = new HashSet<>();
-        indexRequest(request, database)
-                .stream()
-                .limit(1)
-                .forEach(documentIndex -> {
-                    database.updateDocument(request.getPayload(), documentIndex);
-                    usedDocuments.add(documentIndex);
-                });
-        request.setUsedDocuments(usedDocuments);
+
+        if(request.getOriginator() == Query.Originator.SelfUpdate) {  // self update case
+            JsonNode payload = request.getPayload();
+            String documentId = payload.get("_id").asText();
+            database.updateDocument(payload, documentId);
+            request.setUsedDocuments(Stream.of(documentId).collect(Collectors.toSet()));
+            request.setStatus(Query.Status.Accepted);
+            return;
+        } else if(request.getOriginator() == Query.Originator.User) { // user query case
+            Optional<JsonNode> optional = indexRequest(request, database)
+                    .stream()
+                    .limit(1)
+                    .map(documentId -> database.getDocument(documentId))
+                    .findFirst();
+            // no document to update
+            if(!optional.isPresent()) {
+                request.setStatus(Query.Status.Rejected);
+                return;
+            }
+            JsonNode oldData = optional.get();
+            String documentId = oldData.get("_id").asText();
+            String affinity = oldData.get("_affinity").asText();
+            String thisNodeId = manager.getConfiguration().getNodeId();
+            request.setOldData(oldData);
+            request.setUsedDocuments(Stream.of(documentId).collect(Collectors.toSet()));
+
+            if(thisNodeId.equals(affinity)) {
+                request.setHasAffinity(true); // declare that affinity is set
+                database.updateDocument(request.getPayload(), documentId); // update database
+            } else {
+                request.setStatus(Query.Status.Rejected); // reject to update current node
+            }
+
+            pass(request); // broadcast
+        } else if(request.getOriginator() == Query.Originator.Broadcaster) {
+            JsonNode broadcasterOldData = request.getPayload().get("old");
+            JsonNode payload = request.getPayload().get("payload");
+            JsonNode myOldData = database.getDocument(broadcasterOldData.get("_id").asText());
+            String documentId = myOldData.get("_id").asText();
+
+            request.setOldData(myOldData); // set old data field
+            request.setUsedDocuments(Stream.of(documentId).collect(Collectors.toSet())); // set used documents field
+            if(broadcasterOldData.equals(myOldData)) {
+                database.updateDocument(payload, documentId);
+            } else {
+                request.setStatus(Query.Status.Rejected);
+            }
+        } else if(request.getOriginator() == Query.Originator.Deferrer) {
+            JsonNode broadcasterOldData = request.getPayload().get("old");
+            JsonNode payload = request.getPayload().get("payload");
+            JsonNode myOldData = database.getDocument(broadcasterOldData.get("_id").asText());
+            String documentId = myOldData.get("_id").asText();
+
+            request.setHasAffinity(true); // set affinity to true
+            request.setOldData(myOldData); // set old data field
+            request.setUsedDocuments(Stream.of(documentId).collect(Collectors.toSet())); // set used documents field
+            if(broadcasterOldData.equals(myOldData)) {
+                database.updateDocument(payload, documentId); // update
+                pass(request); // broadcast
+            } else {
+                request.setStatus(Query.Status.Rejected);
+            }
+        }
     }
 
     private List<String> indexRequest(Query request, Database database) {
         // broadcaster provides the ids of the documents to be deleted
-        if (request.getOriginator() == Query.Originator.Broadcaster) {
+        if (request.getOriginator() == Query.Originator.Broadcaster && request.getQueryType() == QueryType.DeleteDocument) {
             List<String> ids = null;
             try {
                 ids = new ObjectMapper().treeToValue(request.getPayload().get("_ids"),

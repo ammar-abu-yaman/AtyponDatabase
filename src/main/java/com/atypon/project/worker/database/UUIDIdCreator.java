@@ -1,6 +1,6 @@
 package com.atypon.project.worker.database;
 
-import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.query.Query;
 
 import java.util.UUID;
 

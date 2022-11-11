@@ -1,7 +1,7 @@
 package com.atypon.project.worker.lock;
 
 import com.atypon.project.worker.core.MetaData;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.QueryHandler;
 
 import java.util.HashMap;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -44,7 +44,7 @@ public class LockService {
         return globalLock;
     }
 
-    public RequestHandler getHandler() {
+    public QueryHandler getHandler() {
         return new LockHandler(this);
     }
 }

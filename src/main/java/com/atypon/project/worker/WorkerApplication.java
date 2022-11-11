@@ -1,9 +1,9 @@
 package com.atypon.project.worker;
 
 import com.atypon.project.worker.core.DatabaseManager;
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.QueryType;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryType;
+import com.atypon.project.worker.query.QueryHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -27,8 +27,8 @@ public class WorkerApplication {
 				.indexFieldName("price")
 				.build();
 
-		RequestHandler chain = manager.getHandlersFactory().getHandler(request);
-		chain.handleRequest(request);
+		QueryHandler chain = manager.getHandlersFactory().getHandler(request);
+		chain.handle(request);
 
 //		for(String content: new String[] {
 //				"{\"title\": \"Harry Potter\", \"price\": 13.5}",
@@ -36,7 +36,7 @@ public class WorkerApplication {
 //				"{\"title\": \"C++\", \"price\": 200}",
 //				"{\"title\": \"Java\", \"price\": 200}",
 //		}) {
-//			chain.handleRequest(Query
+//			chain.handle(Query
 //					.builder()
 //					.databaseName("Books")
 //					.queryType(QueryType.AddDocument)

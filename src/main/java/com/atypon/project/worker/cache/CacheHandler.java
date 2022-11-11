@@ -1,11 +1,11 @@
 package com.atypon.project.worker.cache;
 
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.query.QueryType;
 import java.util.*;
 
-public class CacheHandler extends RequestHandler {
+public class CacheHandler extends QueryHandler {
 
     CacheService service;
 
@@ -14,7 +14,7 @@ public class CacheHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(Query request) {
+    public void handle(Query request) {
         switch (request.getQueryType()) {
             case FindDocument:
             case FindDocuments:
@@ -30,7 +30,7 @@ public class CacheHandler extends RequestHandler {
                 handleWrite(request);
                 return;
             default:
-                passRequest(request);
+                pass(request);
                 return;
         }
     }
@@ -40,7 +40,7 @@ public class CacheHandler extends RequestHandler {
 
         // case where there is no database with the name provided by the request
         if(!service.containsCache(request.getDatabaseName())) {
-            passRequest(request);
+            pass(request);
             return;
         }
 
@@ -56,7 +56,7 @@ public class CacheHandler extends RequestHandler {
             return;
         }
 
-        passRequest(request);
+        pass(request);
         if(isFailedRequest(request))
             return;
         System.out.println(request.getUsedDocuments());
@@ -64,7 +64,7 @@ public class CacheHandler extends RequestHandler {
     }
 
     private void handleWrite(Query request) {
-        passRequest(request);
+        pass(request);
 
         if(isFailedRequest(request))
             return;
@@ -74,7 +74,7 @@ public class CacheHandler extends RequestHandler {
     }
 
     private void handleDatabaseCreation(Query request) {
-        passRequest(request);
+        pass(request);
         if(isFailedRequest(request))
             return;
         if(request.getQueryType() == QueryType.CreateDatabase)

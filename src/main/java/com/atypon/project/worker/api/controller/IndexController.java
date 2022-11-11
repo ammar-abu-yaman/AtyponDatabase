@@ -1,9 +1,9 @@
 package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
-import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.query.Query;
 
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.QueryType;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +21,7 @@ public class IndexController {
                 .databaseName(databaseName)
                 .indexFieldName(indexFieldName)
                 .build();
-        manager.getHandlersFactory().getHandler(request).handleRequest(request);
+        manager.getHandlersFactory().getHandler(request).handle(request);
         return request.getStatus() + " => " + request.getRequestOutput();
     }
 
@@ -33,7 +33,7 @@ public class IndexController {
                 .databaseName(databaseName)
                 .indexFieldName(indexFieldName)
                 .build();
-        manager.getHandlersFactory().getHandler(request).handleRequest(request);
+        manager.getHandlersFactory().getHandler(request).handle(request);
         return request.getStatus() + " => " + request.getRequestOutput();
     }
 

@@ -1,17 +1,17 @@
 package com.atypon.project.worker.index;
 
-import com.atypon.project.worker.request.Query;
+import com.atypon.project.worker.query.Query;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.database.DatabaseService;
-import com.atypon.project.worker.request.RequestHandler;
-import com.atypon.project.worker.request.Query.Originator;
+import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.query.Query.Originator;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class IndexHandler extends RequestHandler {
+public class IndexHandler extends QueryHandler {
 
     private IndexService indexService;
 
@@ -20,7 +20,7 @@ public class IndexHandler extends RequestHandler {
     }
 
     @Override
-    public void handleRequest(Query request) {
+    public void handle(Query request) {
         switch (request.getQueryType()) {
             case FindDocument:
             case FindDocuments:
@@ -45,7 +45,7 @@ public class IndexHandler extends RequestHandler {
                 handleDeleteDatabase(request);
                 return;
             default:
-                passRequest(request);
+                pass(request);
                 return;
         }
     }
@@ -53,18 +53,18 @@ public class IndexHandler extends RequestHandler {
     private void handleRead(Query request) {
         Entry<String, JsonNode> filterKey = request.getFilterKey();
         if (filterKey == null) {
-            passRequest(request);
+            pass(request);
             return;
         }
 
         IndexKey key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
         if (indexService.containsIndex(key))
             request.setIndex(indexService.getIndex(key).get());
-        passRequest(request);
+        pass(request);
     }
 
     private void handleAddDocument(Query request) {
-        passRequest(request);
+        pass(request);
         if (request.getStatus() == Query.Status.Rejected)
             return;
         Map<String, Index> affectedIndexes = getAffectedIndexes(request);
@@ -88,7 +88,7 @@ public class IndexHandler extends RequestHandler {
             request.setIndex(index);
         }
 
-        passRequest(request);
+        pass(request);
         if (request.getStatus() == Query.Status.Accepted)
             recalculateIndexes(request.getDatabaseName());
     }
@@ -105,13 +105,13 @@ public class IndexHandler extends RequestHandler {
             request.setIndex(index);
         }
 
-        passRequest(request);
+        pass(request);
         if (request.getStatus() == Query.Status.Accepted)
             recalculateIndexes(request.getDatabaseName());
     }
 
     private void handleDeleteDatabase(Query request) {
-        passRequest(request);
+        pass(request);
         if (request.getStatus() == Query.Status.Rejected)
             return;
         indexService.deleteDatabaseIndices(request.getDatabaseName());
@@ -133,7 +133,7 @@ public class IndexHandler extends RequestHandler {
         }
 
         indexService.createIndex(key);
-        passRequest(request);
+        pass(request);
 
         request.setStatus(Query.Status.Accepted);
         return;
@@ -148,7 +148,7 @@ public class IndexHandler extends RequestHandler {
         }
 
         indexService.deleteIndex(key);
-        passRequest(request);
+        pass(request);
 
         request.setStatus(Query.Status.Accepted);
     }

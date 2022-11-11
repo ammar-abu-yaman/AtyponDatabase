@@ -2,14 +2,15 @@ package com.atypon.project.worker.brodcast;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Node;
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryHandler;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import static java.lang.String.format;
 
@@ -18,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class BroadcastHandler extends RequestHandler {
+public class BroadcastHandler extends QueryHandler {
 
     DatabaseManager manager = DatabaseManager.getInstance();
     ObjectMapper mapper = new ObjectMapper();
@@ -27,7 +28,7 @@ public class BroadcastHandler extends RequestHandler {
     final static String URL = "http://%s:8080/_internal/%s/%s";
 
     @Override
-    public void handleRequest(Query request) {
+    public void handle(Query request) {
         switch (request.getQueryType()) {
             case AddDocument:
                 addDocument(request);
@@ -56,35 +57,53 @@ public class BroadcastHandler extends RequestHandler {
 
     private void updateDocument(Query query) {
         JsonNode oldData = query.getOldData();
-        JsonNode payload = query.getPayload();
+        JsonNode payload = query.getOriginator() == Query.Originator.User ? query.getPayload() : query.getPayload().get("payload");
         ObjectNode body = mapper.createObjectNode();
         body.set("old", oldData);
         body.set("payload", payload);
+
+        // node have affinity then do a regular broadcast to all other nodes
         if(query.hasAffinity()) {
-            launch(() -> {
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
-                for (Node node : nodes) {
-                    try {
-                        new RestTemplate().postForEntity(format(URL, node.getAddress(), "update_document", query.getDatabaseName()), entity, String.class);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-        } else {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<String> entity = new HttpEntity<>(body.toString(), headers);
-            for (Node node : nodes) {
-                try {
-                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "update_document", query.getDatabaseName()), entity, String.class);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+            broadcast("update_document", query.getDatabaseName(), body.toString());
+            query.setStatus(Query.Status.Accepted);
+            return;
         }
+        // node doesn't have affinity, defer the write to the node with the affinity for the document
+        String documentId = oldData.get("_id").asText();
+        Node node = nodes.stream().filter(n -> n.getId().equals(documentId)).findFirst().get();
+        try {
+            ResponseEntity<String> response = defer(body.toString(), node);
+            while(response.getStatusCode() != HttpStatus.ACCEPTED) {
+                JsonNode newData = mapper.readTree(response.getBody());
+                Query rewrite = Query.builder()
+                        .originator(Query.Originator.SelfUpdate)
+                        .databaseName(query.getDatabaseName())
+                        .payload(newData)
+                        .build();
+                // update self with new value
+                manager.getHandlersFactory().getHandler(rewrite).handle(rewrite);
+                // replace old data with the rewrite old data
+                body.replace("old", rewrite.getOldData());
+                // try to defer again
+                response = defer(body.toString(), node);
+            }
+
+            query.setStatus(Query.Status.Accepted);
+            return;
+        }
+        catch (RestClientException | JsonProcessingException e) { // network error or json parse error
+            query.setStatus(Query.Status.Rejected);
+            e.printStackTrace();
+            return;
+        }
+
+    }
+
+    private ResponseEntity<String> defer(String body, Node node) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        return new RestTemplate().postForEntity(format(URL, node.getAddress(), "defer_update", ""), entity, String.class);
     }
 
     private void createIndex(Query request) {
@@ -107,8 +126,8 @@ public class BroadcastHandler extends RequestHandler {
         request.setStatus(Query.Status.Accepted);
     }
 
+    // async broadcasting
     private void broadcast(String action, String info, String body) {
-        // async broadcasting
         launch(() -> sendToNodes(action, info, body));
     }
 
@@ -116,41 +135,20 @@ public class BroadcastHandler extends RequestHandler {
         String payload = request.getPayload().toString();
         String databaseName = request.getDatabaseName();
         // async broadcasting
-        launch(() -> {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<String> entity = new HttpEntity<>(payload, headers);
-            for (Node node : nodes) {
-                try {
-                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "add_document", databaseName),
-                            entity, String.class);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+
+        broadcast("add_document", databaseName, payload);
+        request.setStatus(Query.Status.Accepted);
     }
 
     public void deleteDocument(Query request) {
         List<String> ids = request.getUsedDocuments().stream().collect(Collectors.toList());
         String databaseName = request.getDatabaseName();
+        Map<String, Object> map = new HashMap<>();
+        map.put("_ids", ids);
+        JsonNode json = mapper.valueToTree(map);
+
         // async broadcasting
-        launch(() -> {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            Map<String, Object> map = new HashMap<>();
-            map.put("_ids", ids);
-            JsonNode json = mapper.valueToTree(map);
-            HttpEntity<String> entity = new HttpEntity<>(json.toString(), headers);
-            for (Node node : nodes) {
-                try {
-                    new RestTemplate().postForEntity(format(URL, node.getAddress(), "delete_document", databaseName),
-                            entity, String.class);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        broadcast("delete_document", databaseName, json.toString());
         request.setStatus(Query.Status.Accepted);
     }
 
@@ -173,5 +171,5 @@ public class BroadcastHandler extends RequestHandler {
         thread.setDaemon(true);
         thread.start();
     }
-
+    
 }

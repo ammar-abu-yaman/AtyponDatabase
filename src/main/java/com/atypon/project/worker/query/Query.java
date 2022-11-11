@@ -1,4 +1,4 @@
-package com.atypon.project.worker.request;
+package com.atypon.project.worker.query;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Builder;
@@ -12,14 +12,15 @@ import java.util.Set;
 @Builder
 public class Query implements Serializable {
 
-    public enum Originator { User, Broadcaster, Deferrer}
+    public enum Originator { User, Broadcaster, Deferrer, SelfUpdate }
     public enum Status { Accepted, Rejected }
 
     @Builder.Default
     private Status status = Status.Accepted;
     private String databaseName;
     private JsonNode oldData;
-    private boolean hasAffinity;
+    @Builder.Default
+    private boolean hasAffinity = false;
     @Builder.Default
     private StringBuilder requestOutput = new StringBuilder();
     private Originator originator;

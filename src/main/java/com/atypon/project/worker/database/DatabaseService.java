@@ -2,7 +2,7 @@ package com.atypon.project.worker.database;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.QueryHandler;
 
 import java.io.*;
 import java.nio.file.Paths;
@@ -74,7 +74,7 @@ public class DatabaseService {
         return dataDirectory;
     }
 
-    public RequestHandler getHandler() {
+    public QueryHandler getHandler() {
         return new DatabaseHandler(this, new UUIDIdCreator());
     }
 

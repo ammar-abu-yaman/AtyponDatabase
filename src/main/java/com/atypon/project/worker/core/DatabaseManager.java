@@ -5,9 +5,9 @@ import com.atypon.project.worker.cache.CacheService;
 import com.atypon.project.worker.database.DatabaseService;
 import com.atypon.project.worker.index.IndexService;
 import com.atypon.project.worker.lock.LockService;
-import com.atypon.project.worker.request.Query;
-import com.atypon.project.worker.request.HandlerFactory;
-import com.atypon.project.worker.request.QueryType;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.HandlerFactory;
+import com.atypon.project.worker.query.QueryType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -96,7 +96,7 @@ public class DatabaseManager {
                             .queryType(QueryType.AddDocument)
                             .payload(json)
                             .build();
-                    handlersFactory.getHandler(request).handleRequest(request);
+                    handlersFactory.getHandler(request).handle(request);
                 });
     }
 

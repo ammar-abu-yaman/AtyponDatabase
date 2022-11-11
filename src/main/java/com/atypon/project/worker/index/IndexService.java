@@ -3,13 +3,12 @@ package com.atypon.project.worker.index;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
 import com.atypon.project.worker.database.DatabaseService;
-import com.atypon.project.worker.request.RequestHandler;
+import com.atypon.project.worker.query.QueryHandler;
 
 import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class IndexService {
 
@@ -141,7 +140,7 @@ public class IndexService {
         return null;
     }
 
-    public RequestHandler getHandler() {
+    public QueryHandler getHandler() {
         return new IndexHandler(this);
     }
 }
