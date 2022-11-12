@@ -1,14 +1,18 @@
 package com.atypon.project.worker.handler;
 
+import com.atypon.project.worker.database.Database;
 import com.atypon.project.worker.index.Index;
 import com.atypon.project.worker.index.IndexKey;
 import com.atypon.project.worker.index.IndexService;
 import com.atypon.project.worker.query.Query;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.database.DatabaseService;
 import com.atypon.project.worker.query.Query.Originator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,6 +20,7 @@ import java.util.stream.Collectors;
 public class IndexHandler extends QueryHandler {
 
     private IndexService indexService;
+    ObjectMapper mapper = new ObjectMapper();
 
     public IndexHandler(IndexService indexService) {
         this.indexService = indexService;
@@ -107,9 +112,17 @@ public class IndexHandler extends QueryHandler {
             request.setIndex(index);
         }
 
+
         pass(request);
-        if (request.getStatus() == Query.Status.Accepted)
-            recalculateIndexes(request.getDatabaseName());
+        if (request.getStatus() != Query.Status.Accepted)
+            return;
+
+        removeFromIndex(request.getDatabaseName(), request.getOldData(), request.getOldData().get("_id").asText());
+        if(request.getOriginator() == Query.Originator.SelfUpdate || request.getOriginator() == Originator.User) {
+            addToIndex(request.getDatabaseName(), request.getPayload(), request.getOldData().get("_id").asText());
+        } else if(request.getOriginator() == Originator.Broadcaster || request.getOriginator() == Originator.Deferrer) {
+            addToIndex(request.getDatabaseName(), request.getPayload().get("payload"), request.getOldData().get("_id").asText());
+        }
     }
 
     private void handleDelete(Query request) {
@@ -127,8 +140,17 @@ public class IndexHandler extends QueryHandler {
         }
 
         pass(request);
-        if (request.getStatus() == Query.Status.Accepted)
-            recalculateIndexes(request.getDatabaseName());
+        if (request.getStatus() != Query.Status.Accepted)
+            return;
+
+        try {
+            List<JsonNode> oldData = mapper.readValue(request.getOldData().toString(), TypeFactory.defaultInstance().constructCollectionType(List.class, JsonNode.class));
+            for(JsonNode json: oldData)
+                removeFromIndex(request.getDatabaseName(), json, json.get("_id").asText());
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+
     }
 
     private void handleDeleteDatabase(Query request) {
@@ -187,19 +209,43 @@ public class IndexHandler extends QueryHandler {
         return indexes;
     }
 
-    private void recalculateIndexes(String databaseName) {
-        {
-            System.out.println("recalculating " + databaseName + " indexes");
-        }
-        for (IndexKey key : indexService.getIndexesKeys()) {
-            if (!key.getDatabaseName().equals(databaseName))
+    private void removeFromIndex(String databaseName, JsonNode document, String documentIndex) {
+        for (Iterator<String> it = document.fieldNames(); it.hasNext(); ) {
+            String field = it.next();
+            IndexKey key = new IndexKey(databaseName, field);
+            if(!indexService.containsIndex(key))
                 continue;
             Index index = indexService.getIndex(key).get();
-            index.clear();
-            indexService.calculateIndex(key, index);
+            index.delete(document.get(field), documentIndex);
             indexService.saveToFile(key, index);
         }
     }
+
+    private void addToIndex(String databaseName, JsonNode document, String documentIndex) {
+        for (Iterator<String> it = document.fieldNames(); it.hasNext(); ) {
+            String field = it.next();
+            IndexKey key = new IndexKey(databaseName, field);
+            if(!indexService.containsIndex(key))
+                continue;
+            Index index = indexService.getIndex(key).get();
+            index.add(document.get(field), documentIndex);
+            indexService.saveToFile(key, index);
+        }
+    }
+
+//    private void recalculateIndexes(String databaseName) {
+//        {
+//            System.out.println("recalculating " + databaseName + " indexes");
+//        }
+//        for (IndexKey key : indexService.getIndexesKeys()) {
+//            if (!key.getDatabaseName().equals(databaseName))
+//                continue;
+//            Index index = indexService.getIndex(key).get();
+//            index.clear();
+//            indexService.calculateIndex(key, index);
+//            indexService.saveToFile(key, index);
+//        }
+//    }
 
     private IndexKey createKey(Query request) {
         return new IndexKey(request.getDatabaseName(), request.getIndexFieldName());

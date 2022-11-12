@@ -5,7 +5,7 @@ import java.util.Objects;
 
 public class User implements Serializable {
 
-    public enum Role {Admin, Standard}
+    public enum Role {Admin, Viewer, Editor}
 
     private String username;
     private String passwordHash;
@@ -24,8 +24,10 @@ public class User implements Serializable {
         switch (role.toLowerCase()) {
             case "admin":
                 return Role.Admin;
-            case "standard":
-                return Role.Standard;
+            case "viewer":
+                return Role.Viewer;
+            case "editor":
+                return Role.Editor;
         }
         return null;
     }

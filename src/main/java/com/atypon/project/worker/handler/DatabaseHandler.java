@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 
 public class DatabaseHandler extends QueryHandler {
 
+    private ObjectMapper mapper = new ObjectMapper();
     private DatabaseManager manager = DatabaseManager.getInstance();
     private DatabaseService databaseService;
     private IdCreator idCreator;
@@ -61,6 +62,7 @@ public class DatabaseHandler extends QueryHandler {
                 break;
             case FindDocuments:
                 findDocuments(query);
+                break;
             case RegisterUser:
                 registerUser(query);
                 break;
@@ -88,7 +90,7 @@ public class DatabaseHandler extends QueryHandler {
     private void deleteDatabase(Query request) {
         Database database = databaseService.getDatabase(request.getDatabaseName());
         List<String> ids = database.getAllDocuments()
-                .map(document -> document.get("_affinity").asText())
+                .map(document -> document.get("_id").asText())
                 .collect(Collectors.toList());
         decrementAffinity(database, ids);
         databaseService.deleteDatabase(request.getDatabaseName());
@@ -169,22 +171,26 @@ public class DatabaseHandler extends QueryHandler {
                     .map(id -> database.getDocument(id))
                     .map(document -> new Entry<>(document.get("_id").asText(), document.get("_affinity").asText()))
                     .collect(Collectors.toList());
+            List<JsonNode> oldData = new ArrayList<>();
             for(Entry<String, String> entry: info) {
                 String documentIndex = entry.getKey();
                 String affinity = entry.getValue();
+                oldData.add(database.getDocument(documentIndex));
                 database.deleteDocument(documentIndex);
                 usedDocuments.add(documentIndex);
                 nodes.stream()
                         .filter(node -> node.getId().equals(affinity))
                         .findFirst().ifPresent(node -> node.decNumDocuments());
             }
+
+            request.setOldData(mapper.valueToTree(oldData)); // set old data
         } finally {
             manager.saveMetaData();
             manager.unlockMetaData();
         }
 
-        request.setUsedDocuments(usedDocuments);
-        pass(request);
+        request.setUsedDocuments(usedDocuments); // set used documents
+        pass(request); // broadcast
     }
 
     private void updateDocument(Query request) {

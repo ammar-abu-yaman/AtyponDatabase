@@ -62,7 +62,4 @@ public class LoginHandler extends QueryHandler {
 
         return Optional.empty();
     }
-
-
-
 }

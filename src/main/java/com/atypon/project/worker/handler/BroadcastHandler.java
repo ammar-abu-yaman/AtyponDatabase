@@ -164,8 +164,7 @@ public class BroadcastHandler extends QueryHandler {
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
         for (Node node : nodes) {
             try {
-                new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity,
-                        String.class);
+                new RestTemplate().postForEntity(format(URL, node.getAddress(), action, info), entity, String.class);
             } catch (Exception e) {
                 e.printStackTrace();
             }

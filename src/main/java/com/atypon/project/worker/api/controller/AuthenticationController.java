@@ -44,7 +44,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/register")
-    public String register(@RequestBody Credentials credentials) {
+    public String register(@RequestBody SignUpData credentials) {
         Query query = Query.builder()
                 .databaseName("_Users")
                 .originator(Query.Originator.User)
@@ -60,6 +60,20 @@ public class AuthenticationController {
     @PostMapping("/logout")
     public void logout(HttpSession session) {
         session.removeAttribute("user");
+    }
+
+    @Getter
+    @NoArgsConstructor
+    private static class SignUpData {
+        private String username;
+        private String password;
+        private String role;
+
+        public SignUpData(String username, String password, String role) {
+            this.username = username;
+            this.password = password;
+            this.role = role;
+        }
     }
 
     @Getter

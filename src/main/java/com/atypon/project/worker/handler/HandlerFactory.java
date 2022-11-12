@@ -1,13 +1,9 @@
 package com.atypon.project.worker.handler;
 
-import com.atypon.project.worker.handler.QueryHandler;
-import com.atypon.project.worker.handler.RegisterHandler;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
 import com.atypon.project.worker.user.LoginHandler;
-import com.atypon.project.worker.handler.BroadcastHandler;
 import com.atypon.project.worker.core.DatabaseManager;
-
 import java.util.Arrays;
 
 public class HandlerFactory {

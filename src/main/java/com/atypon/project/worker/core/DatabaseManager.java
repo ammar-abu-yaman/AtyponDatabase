@@ -1,6 +1,5 @@
 package com.atypon.project.worker.core;
 
-import com.atypon.project.worker.handler.BroadcastHandler;
 import com.atypon.project.worker.handler.QueryHandler;
 import com.atypon.project.worker.handler.RegisterHandler;
 import com.atypon.project.worker.user.User;
@@ -17,16 +16,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import org.mindrot.jbcrypt.BCrypt;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.*;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
@@ -57,7 +52,8 @@ public class DatabaseManager {
         INSTANCE.metaDataLock = new ReentrantLock();
         INSTANCE.metaData = MetaData
                 .builder()
-                .isBootstrap(System.getenv("BOOTSTRAP") == null) // TODO: Change this
+                .isBootstrap(System.getenv("BOOTSTRAP") != null) // TODO: Change this
+                .bootstrapAddress("10.1.4.0")
                 .databasesNames(Stream.of("_Users", "Books", "Movies").collect(Collectors.toList()))
                 .indexesIdentifiers(Stream.of("_Users:username").collect(Collectors.toList()))
                 .nodeId(System.getenv("NODE_ID") != null ? System.getenv("NODE_ID") : "node_1") // assumed to be a
@@ -71,25 +67,25 @@ public class DatabaseManager {
             savePath.mkdirs();
         }
 
-
-
         INSTANCE.databaseService = new DatabaseService(INSTANCE.metaData);
         INSTANCE.lockService = new LockService(INSTANCE.metaData);
         INSTANCE.indexService = new IndexService(INSTANCE.metaData);
         INSTANCE.cacheService = new CacheService(1024, INSTANCE.metaData);
         INSTANCE.handlersFactory = new HandlerFactory();
 
-        try {
-            if(INSTANCE.getConfiguration().isBootstrap()) {
-                INSTANCE.initializeAsBootstrap();
-            } else {
-                INSTANCE.initializeAsWorker();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("Something went wrong while initializing node");
-            System.exit(1);
-        }
+        INSTANCE.debugInitialize();
+
+//        try {
+//            if(INSTANCE.getConfiguration().isBootstrap()) {
+//                INSTANCE.initializeAsBootstrap();
+//            } else {
+//                INSTANCE.initializeAsWorker();
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            System.out.println("Something went wrong while initializing node");
+//            System.exit(1);
+//        }
 
     }
 
@@ -107,7 +103,7 @@ public class DatabaseManager {
                     new User(
                             name,
                             BCrypt.hashpw("12345", BCrypt.gensalt()),
-                            User.Role.Standard,
+                            User.Role.Viewer,
                                     name.equals("hadeel") ? "node_2" : "node_1"));
             Map<String, Object> result = mapper.convertValue(json, new TypeReference<Map<String, Object>>() {
             });
@@ -180,7 +176,7 @@ public class DatabaseManager {
 
     private void initializeUsers() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        String bootstrapAddress = getConfiguration().getAddress();
+        String bootstrapAddress = getConfiguration().getBootstrapAddress();
         String url = "http://" + bootstrapAddress + ":8080" + "/_internal/get_users";
         ResponseEntity<String> response = new RestTemplate().getForEntity(url, String.class);
 
@@ -198,7 +194,7 @@ public class DatabaseManager {
 
     private void initializeNodes() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        String bootstrapAddress = getConfiguration().getAddress();
+        String bootstrapAddress = getConfiguration().getBootstrapAddress();
         String url = "http://" + bootstrapAddress + ":8080" + "/_internal/get_nodes";
         ResponseEntity<String> response = new RestTemplate().getForEntity(url, String.class);
         List<Node> nodes = mapper.readValue(response.getBody(), TypeFactory.defaultInstance().constructCollectionType(List.class, Node.class));
