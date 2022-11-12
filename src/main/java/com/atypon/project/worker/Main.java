@@ -8,7 +8,7 @@ import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.index.BTreeIndex;
 import com.atypon.project.worker.index.JsonComparator;
-import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.handler.QueryHandler;
 
 import java.util.function.Function;
 

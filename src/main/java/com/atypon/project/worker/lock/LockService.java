@@ -1,7 +1,8 @@
 package com.atypon.project.worker.lock;
 
 import com.atypon.project.worker.core.MetaData;
-import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.handler.LockHandler;
+import com.atypon.project.worker.handler.QueryHandler;
 
 import java.util.HashMap;
 import java.util.concurrent.locks.ReadWriteLock;

@@ -2,32 +2,26 @@ package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Node;
+import com.atypon.project.worker.database.Database;
+import com.atypon.project.worker.database.DatabaseService;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
-
-import javax.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 public class InternalController {
 
     DatabaseManager manager = DatabaseManager.getInstance();
     ObjectMapper mapper = new ObjectMapper();
-    List<Node> nodes = DatabaseManager.getInstance().getConfiguration().getNodes();
 
     @PostMapping("/_internal/add_document/{database}")
-    public String addDocument(HttpServletRequest httpRequest,
-            @RequestBody Map<String, Object> requestBody,
-            @PathVariable("database") String databaseName) {
-        if (!validateNode(httpRequest))
-            return "Rejected";
+    public String addDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         Query request = Query.builder()
                 .originator(Query.Originator.Broadcaster)
                 .queryType(QueryType.AddDocument)
@@ -39,11 +33,7 @@ public class InternalController {
     }
 
     @PostMapping("/_internal/delete_document/{database}")
-    public String deleteDocument(HttpServletRequest httpRequest,
-            @RequestBody Map<String, Object> requestBody,
-            @PathVariable("database") String databaseName) {
-        if (!validateNode(httpRequest))
-            return "Rejected";
+    public String deleteDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         Query request = Query.builder()
                 .originator(Query.Originator.Broadcaster)
                 .queryType(QueryType.DeleteDocument)
@@ -55,10 +45,7 @@ public class InternalController {
     }
 
     @PostMapping("/_internal/update_document/{database}")
-    public String updateDocument(HttpServletRequest httpRequest, @RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
-        if (!validateNode(httpRequest))
-            return "Rejected";
-
+    public String updateDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         Query request = Query.builder()
                 .originator(Query.Originator.Broadcaster)
                 .databaseName(databaseName)
@@ -69,9 +56,7 @@ public class InternalController {
         return "";
     }
     @PostMapping("/_internal/defer_update/{database}")
-    public String updateDefer(HttpServletRequest httpRequest, HttpServletResponse resp, @RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
-        if (!validateNode(httpRequest))
-            return "Rejected";
+    public String updateDefer(HttpServletResponse resp, @RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         Query query = Query.builder()
                 .originator(Query.Originator.Deferrer)
                 .databaseName(databaseName)
@@ -89,30 +74,55 @@ public class InternalController {
 
 
     @PostMapping("/_internal/create_database/{database}")
-    public String createDatabase(HttpServletRequest httpRequest, @PathVariable("database") String databaseName) {
-        return databaseHelper(httpRequest, databaseName, QueryType.CreateDatabase);
+    public String createDatabase(@PathVariable("database") String databaseName) {
+        return databaseHelper(databaseName, QueryType.CreateDatabase);
     }
 
     @PostMapping("/_internal/delete_database/{database}")
-    public String deleteDatabase(HttpServletRequest httpRequest, @PathVariable("database") String databaseName) {
-        return databaseHelper(httpRequest, databaseName, QueryType.DeleteDatabase);
+    public String deleteDatabase(@PathVariable("database") String databaseName) {
+        return databaseHelper(databaseName, QueryType.DeleteDatabase);
     }
 
     @PostMapping("/_internal/create_index/{database}/{index}")
-    public String createIndex(HttpServletRequest httpRequest, @PathVariable("database") String database,
-            @PathVariable("index") String index) {
-        return indexHelper(httpRequest, database, index, QueryType.CreateIndex);
+    public String createIndex(@PathVariable("database") String database, @PathVariable("index") String index) {
+        return indexHelper(database, index, QueryType.CreateIndex);
     }
 
     @PostMapping("/_internal/delete_index/{database}/{index}")
-    public String deleteIndex(HttpServletRequest httpRequest, @PathVariable("database") String database,
+    public String deleteIndex(@PathVariable("database") String database,
             @PathVariable("index") String index) {
-        return indexHelper(httpRequest, database, index, QueryType.DeleteIndex);
+        return indexHelper(database, index, QueryType.DeleteIndex);
     }
 
-    private String databaseHelper(HttpServletRequest httpRequest, String databaseName, QueryType type) {
-        if (!validateNode(httpRequest))
-            return "Rejected";
+    @PostMapping("/_internal/add_user")
+    public String addUser(@RequestBody Map<String, Object> requestBody) {
+        Query query = Query.builder()
+                .originator(Query.Originator.Broadcaster)
+                .databaseName("_Users")
+                .queryType(QueryType.AddDocument)
+                .payload(mapper.valueToTree(requestBody))
+                .build();
+        manager.getHandlersFactory().getHandler(query).handle(query);
+        return query.getStatus().toString();
+    }
+
+    @GetMapping("/_internal/get_users")
+    public String getUsers() {
+        DatabaseService service = manager.getDatabaseService();
+        Database usersDatabase = service.getDatabase("_Users");
+        List<JsonNode> users = usersDatabase.getAllDocuments().collect(Collectors.toList());
+        return mapper.valueToTree(users).toString();
+    }
+
+    @GetMapping("/_internal/get_nodes")
+    public String getNodes() {
+        List<Node> nodes = manager.getConfiguration().getNodes();
+        return mapper.valueToTree(nodes).toString();
+    }
+
+
+
+    private String databaseHelper(String databaseName, QueryType type) {
         Query request = Query.builder()
                 .originator(Query.Originator.Broadcaster)
                 .queryType(type)
@@ -122,9 +132,7 @@ public class InternalController {
         return "";
     }
 
-    private String indexHelper(HttpServletRequest httpRequest, String database, String index, QueryType type) {
-        if (!validateNode(httpRequest))
-            return "Rejected";
+    private String indexHelper(String database, String index, QueryType type) {
         Query request = Query.builder()
                 .originator(Query.Originator.Broadcaster)
                 .queryType(type)
@@ -133,11 +141,6 @@ public class InternalController {
                 .build();
         manager.getHandlersFactory().getHandler(request).handle(request);
         return "";
-    }
-
-    boolean validateNode(HttpServletRequest httpRequest) {
-        String address = httpRequest.getRemoteAddr();
-        return nodes.stream().anyMatch(node -> node.getAddress().equals(address));
     }
 
 }

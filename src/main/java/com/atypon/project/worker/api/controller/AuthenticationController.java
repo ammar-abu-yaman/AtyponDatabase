@@ -17,9 +17,11 @@ import javax.servlet.http.HttpSession;
 @RestController
 public class AuthenticationController {
 
+    ObjectMapper mapper = new ObjectMapper();
+    DatabaseManager manager = DatabaseManager.getInstance();
+
     @PostMapping("/login")
     public String login(HttpSession session, @RequestBody Credentials credentials) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
         Query request = Query.builder()
                 .originator(Query.Originator.User)
                 .queryType(QueryType.Login)
@@ -40,6 +42,20 @@ public class AuthenticationController {
         }
         return request.getRequestOutput().toString();
     }
+
+    @PostMapping("/register")
+    public String register(@RequestBody Credentials credentials) {
+        Query query = Query.builder()
+                .databaseName("_Users")
+                .originator(Query.Originator.User)
+                .queryType(QueryType.RegisterUser)
+                .payload(mapper.valueToTree(credentials))
+                .build();
+
+        manager.getHandlersFactory().getHandler(query).handle(query);
+        return query.getRequestOutput().toString();
+    }
+
 
     @PostMapping("/logout")
     public void logout(HttpSession session) {

@@ -1,7 +1,9 @@
-package com.atypon.project.worker.cache;
+package com.atypon.project.worker.handler;
 
+import com.atypon.project.worker.cache.Cache;
+import com.atypon.project.worker.cache.CacheEntry;
+import com.atypon.project.worker.cache.CacheService;
 import com.atypon.project.worker.query.Query;
-import com.atypon.project.worker.query.QueryHandler;
 import com.atypon.project.worker.query.QueryType;
 import java.util.*;
 
@@ -14,23 +16,23 @@ public class CacheHandler extends QueryHandler {
     }
 
     @Override
-    public void handle(Query request) {
-        switch (request.getQueryType()) {
+    public void handle(Query query) {
+        switch (query.getQueryType()) {
             case FindDocument:
             case FindDocuments:
-                handleRead(request);
+                handleRead(query);
                 return;
             case CreateDatabase:
             case DeleteDatabase:
-                handleDatabaseCreation(request);
+                handleDatabaseCreation(query);
                 return;
             case AddDocument:
             case DeleteDocument:
             case UpdateDocument:
-                handleWrite(request);
+                handleWrite(query);
                 return;
             default:
-                pass(request);
+                pass(query);
                 return;
         }
     }
@@ -57,7 +59,7 @@ public class CacheHandler extends QueryHandler {
         }
 
         pass(request);
-        if(isFailedRequest(request))
+        if(updateNotNeeded(request))
             return;
         System.out.println(request.getUsedDocuments());
         cache.put(new CacheEntry(request), request.getRequestOutput().toString());
@@ -66,26 +68,24 @@ public class CacheHandler extends QueryHandler {
     private void handleWrite(Query request) {
         pass(request);
 
-        if(isFailedRequest(request))
+        if(updateNotNeeded(request))
             return;
 
-        Cache<CacheEntry, String> cache = service.getCache(request.getDatabaseName());
-        cache.clear();
+        // clear cache if exists
+        if(service.containsCache(request.getDatabaseName())) {
+            Cache<CacheEntry, String> cache = service.getCache(request.getDatabaseName());
+            cache.clear();
+        }
     }
 
     private void handleDatabaseCreation(Query request) {
         pass(request);
-        if(isFailedRequest(request))
+        if(updateNotNeeded(request))
             return;
         if(request.getQueryType() == QueryType.CreateDatabase)
             service.createCache(request.getDatabaseName());
         else if(request.getQueryType() == QueryType.DeleteDatabase)
             service.deleteCache(request.getDatabaseName());
     }
-
-    private boolean isFailedRequest(Query request) {
-        return request.getStatus() != Query.Status.Accepted;
-    }
-
 
 }

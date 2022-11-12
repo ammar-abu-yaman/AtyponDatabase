@@ -3,7 +3,8 @@ package com.atypon.project.worker.index;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
 import com.atypon.project.worker.database.DatabaseService;
-import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.handler.IndexHandler;
+import com.atypon.project.worker.handler.QueryHandler;
 
 import java.io.*;
 import java.nio.file.Paths;

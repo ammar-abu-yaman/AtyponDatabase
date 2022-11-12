@@ -1,11 +1,9 @@
-package com.atypon.project.worker.brodcast;
+package com.atypon.project.worker.handler;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Node;
 import com.atypon.project.worker.query.Query;
-import com.atypon.project.worker.query.QueryHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -28,31 +26,39 @@ public class BroadcastHandler extends QueryHandler {
     final static String URL = "http://%s:8080/_internal/%s/%s";
 
     @Override
-    public void handle(Query request) {
-        switch (request.getQueryType()) {
+    public void handle(Query query) {
+        switch (query.getQueryType()) {
             case AddDocument:
-                addDocument(request);
+                addDocument(query);
                 return;
             case DeleteDocument:
-                deleteDocument(request);
+                deleteDocument(query);
                 return;
             case UpdateDocument:
-                updateDocument(request);
+                updateDocument(query);
                 return;
             case DeleteDatabase:
-                deleteDatabase(request);
+                deleteDatabase(query);
                 return;
             case CreateDatabase:
-                createDatabase(request);
+                createDatabase(query);
                 return;
             case CreateIndex:
-                createIndex(request);
+                createIndex(query);
                 return;
             case DeleteIndex:
-                deleteIndex(request);
+                deleteIndex(query);
+                return;
+            case RegisterUser:
+                registerUser(query);
                 return;
 
         }
+    }
+
+    private void registerUser(Query query) {
+        broadcast("add_user", "", query.getPayload().toString());
+        query.setStatus(Query.Status.Accepted);
     }
 
     private void updateDocument(Query query) {
@@ -69,11 +75,11 @@ public class BroadcastHandler extends QueryHandler {
             return;
         }
         // node doesn't have affinity, defer the write to the node with the affinity for the document
-        String documentId = oldData.get("_id").asText();
-        Node node = nodes.stream().filter(n -> n.getId().equals(documentId)).findFirst().get();
+        String affinity = oldData.get("_affinity").asText();
+        Node node = nodes.stream().filter(n -> n.getId().equals(affinity)).findFirst().get();
         try {
-            ResponseEntity<String> response = defer(body.toString(), node);
-            while(response.getStatusCode() != HttpStatus.ACCEPTED) {
+            ResponseEntity<String> response = defer(query.getDatabaseName(), body.toString(), node);
+            while(response.getStatusCode() != HttpStatus.OK) {
                 JsonNode newData = mapper.readTree(response.getBody());
                 Query rewrite = Query.builder()
                         .originator(Query.Originator.SelfUpdate)
@@ -82,13 +88,13 @@ public class BroadcastHandler extends QueryHandler {
                         .build();
                 // update self with new value
                 manager.getHandlersFactory().getHandler(rewrite).handle(rewrite);
-                // replace old data with the rewrite old data
-                body.replace("old", rewrite.getOldData());
+                // replace old data with the rewritten data
+                body.replace("old", newData);
                 // try to defer again
-                response = defer(body.toString(), node);
+                response = defer(query.getDatabaseName(), body.toString(), node);
             }
 
-            query.setStatus(Query.Status.Accepted);
+            query.setStatus(Query.Status.Deferred);
             return;
         }
         catch (RestClientException | JsonProcessingException e) { // network error or json parse error
@@ -99,11 +105,11 @@ public class BroadcastHandler extends QueryHandler {
 
     }
 
-    private ResponseEntity<String> defer(String body, Node node) {
+    private ResponseEntity<String> defer(String database, String body, Node node) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
-        return new RestTemplate().postForEntity(format(URL, node.getAddress(), "defer_update", ""), entity, String.class);
+        return new RestTemplate().postForEntity(format(URL, node.getAddress(), "defer_update", database), entity, String.class);
     }
 
     private void createIndex(Query request) {

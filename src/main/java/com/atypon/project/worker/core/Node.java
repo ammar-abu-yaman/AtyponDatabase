@@ -1,39 +1,35 @@
 package com.atypon.project.worker.core;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.util.Objects;
 
+@Getter
+@NoArgsConstructor
 public class Node implements Serializable {
 
-    private final String id;
-    private final String address;
+    private String id;
+    private String address;
     private int numDocuments;
+    private int numUsers;
 
-    public Node(String id, String address, int numDocuments) {
+
+    public Node(String id, String address, int numDocuments, int numUsers) {
         this.id = id;
         this.address = address;
         this.numDocuments = numDocuments;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public int getNumDocuments() {
-        return numDocuments;
-    }
-
-    public void setNumDocuments(int numDocuments) {
-        this.numDocuments = numDocuments;
+        this.numUsers = numUsers;
     }
 
     public void incNumDocuments() {
         numDocuments++;
     }
+    public void decNumDocuments() {
+        numDocuments--;
+    }
+    public void incNumUsers() { numUsers++; }
 
     @Override
     public String toString() {
@@ -57,7 +53,5 @@ public class Node implements Serializable {
         return Objects.hash(id, address, numDocuments);
     }
 
-    public void decNumDocuments() {
-        numDocuments--;
-    }
+
 }

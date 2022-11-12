@@ -15,12 +15,18 @@ public class MetaData implements Serializable {
 
     private String nodeId;
     private String address;
+    @Builder.Default
+    private String bootstrapAddress = System.getenv("BOOTSTRAP_ADDRESS") != null
+            ? System.getenv("BOOTSTRAP_ADDRESS")
+            : "10.1.4.0";
     private int numDocuments;
     private String savePath;
     private String dataDirectory;
     private String indexesDirectory;
     private List<String> indexesIdentifiers;
     private List<String> databasesNames;
+    @Builder.Default
+    private boolean isBootstrap = false;
     @Builder.Default
     private List<Node> nodes = new ArrayList<>();
 

@@ -1,11 +1,13 @@
-package com.atypon.project.worker.index;
+package com.atypon.project.worker.handler;
 
+import com.atypon.project.worker.index.Index;
+import com.atypon.project.worker.index.IndexKey;
+import com.atypon.project.worker.index.IndexService;
 import com.atypon.project.worker.query.Query;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.database.DatabaseService;
-import com.atypon.project.worker.query.QueryHandler;
 import com.atypon.project.worker.query.Query.Originator;
 
 import java.util.*;
@@ -20,34 +22,47 @@ public class IndexHandler extends QueryHandler {
     }
 
     @Override
-    public void handle(Query request) {
-        switch (request.getQueryType()) {
+    public void handle(Query query) {
+        switch (query.getQueryType()) {
             case FindDocument:
             case FindDocuments:
-                handleRead(request);
+                handleRead(query);
                 return;
             case AddDocument:
-                handleAddDocument(request);
+                handleAddDocument(query);
                 return;
             case UpdateDocument:
-                handleUpdate(request);
+                handleUpdate(query);
                 return;
             case DeleteDocument:
-                handleDelete(request);
+                handleDelete(query);
                 return;
             case CreateIndex:
-                handleCreateIndex(request);
+                handleCreateIndex(query);
                 return;
             case DeleteIndex:
-                handleDeleteIndex(request);
+                handleDeleteIndex(query);
                 return;
             case DeleteDatabase:
-                handleDeleteDatabase(request);
+                handleDeleteDatabase(query);
+                return;
+            case RegisterUser:
+                handlerRegisterUser(query);
                 return;
             default:
-                pass(request);
+                pass(query);
                 return;
         }
+    }
+
+    private void handlerRegisterUser(Query query) {
+        IndexKey key = new IndexKey("_Users", "username");
+        Index index = indexService.getIndex(key).get();
+        query.setIndex(index);
+
+        pass(query);
+        index.add(query.getPayload().get("username"), query.getPayload().get("_id").asText());
+        indexService.saveToFile(key, index);
     }
 
     private void handleRead(Query request) {
@@ -81,7 +96,11 @@ public class IndexHandler extends QueryHandler {
     private void handleUpdate(Query request) {
         Entry<String, JsonNode> filterKey = request.getFilterKey();
 
-        IndexKey key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
+        IndexKey key = null;
+
+        // there is only a filter key in user requests
+        if (request.getOriginator() == Originator.User)
+            key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
 
         if (indexService.containsIndex(key)) {
             Index index = indexService.getIndex(key).get();
@@ -97,6 +116,8 @@ public class IndexHandler extends QueryHandler {
         Entry<String, JsonNode> filterKey = request.getFilterKey();
 
         IndexKey key = null;
+
+        // there is only a filter key in user requests
         if (request.getOriginator() == Originator.User)
             key = new IndexKey(request.getDatabaseName(), filterKey.getKey());
 

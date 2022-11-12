@@ -1,8 +1,11 @@
-package com.atypon.project.worker.database;
+package com.atypon.project.worker.handler;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.MetaData;
 import com.atypon.project.worker.core.Node;
+import com.atypon.project.worker.database.Database;
+import com.atypon.project.worker.database.DatabaseService;
+import com.atypon.project.worker.database.IdCreator;
 import com.atypon.project.worker.query.Query;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,9 +13,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.atypon.project.worker.core.Entry;
-import com.atypon.project.worker.query.QueryHandler;
 import com.atypon.project.worker.query.QueryType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
 import java.util.*;
@@ -31,37 +32,47 @@ public class DatabaseHandler extends QueryHandler {
     }
 
     @Override
-    public void handle(Query request) {
-        if (request.getQueryType() != QueryType.CreateDatabase
-                && !databaseService.containsDatabase(request.getDatabaseName())) {
-            request.getRequestOutput().append("No Such Database Exists");
-            request.setStatus(Query.Status.Rejected);
+    public void handle(Query query) {
+        if (query.getQueryType() != QueryType.CreateDatabase
+                && !databaseService.containsDatabase(query.getDatabaseName())) {
+            query.getRequestOutput().append("No Such Database Exists");
+            query.setStatus(Query.Status.Rejected);
             return;
         }
 
-        switch (request.getQueryType()) {
+        switch (query.getQueryType()) {
             case CreateDatabase:
-                createDatabase(request);
+                createDatabase(query);
                 break;
             case DeleteDatabase:
-                deleteDatabase(request);
+                deleteDatabase(query);
                 break;
             case AddDocument:
-                addDocument(request);
+                addDocument(query);
                 break;
             case DeleteDocument:
-                deleteDocument(request);
+                deleteDocument(query);
                 break;
             case UpdateDocument:
-                updateDocument(request);
+                updateDocument(query);
                 break;
             case FindDocument:
-                findDocument(request);
+                findDocument(query);
                 break;
             case FindDocuments:
-                findDocuments(request);
+                findDocuments(query);
+            case RegisterUser:
+                registerUser(query);
                 break;
         }
+    }
+
+    private void registerUser(Query query) {
+        JsonNode user = query.getPayload();
+        System.out.println(user.toPrettyString());
+        Database users = databaseService.getDatabase("_Users");
+        users.addDocument(user.get("_id").asText(), user);
+        pass(query);
     }
 
     private void createDatabase(Query request) {
@@ -89,7 +100,7 @@ public class DatabaseHandler extends QueryHandler {
         String documentIndex;
         String affinity;
         // user added a document
-        if (request.getOriginator() == Query.Originator.User) {
+        if (request.getOriginator() == Query.Originator.User) { // User case
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> result = mapper.convertValue(payload, new TypeReference<Map<String, Object>>() {
             });
@@ -100,11 +111,9 @@ public class DatabaseHandler extends QueryHandler {
             payload = mapper.valueToTree(result);
             request.setPayload(payload);
             // broadcaster is accessing the system
-        } else {
+        } else { // Broadcaster node case
             documentIndex = payload.get("_id").asText();
             affinity = payload.get("_affinity").asText();
-            databaseService.getDatabase(request.getDatabaseName()).addDocument(documentIndex, payload);
-
         }
         request.setUsedDocuments(new HashSet<>(Arrays.asList(documentIndex)));
         if (!request.getDatabaseName().equals("_Users"))
@@ -184,7 +193,9 @@ public class DatabaseHandler extends QueryHandler {
         if(request.getOriginator() == Query.Originator.SelfUpdate) {  // self update case
             JsonNode payload = request.getPayload();
             String documentId = payload.get("_id").asText();
+            JsonNode oldData =  database.getDocument(documentId);
             database.updateDocument(payload, documentId);
+            request.setOldData(oldData);
             request.setUsedDocuments(Stream.of(documentId).collect(Collectors.toSet()));
             request.setStatus(Query.Status.Accepted);
             return;
@@ -325,7 +336,7 @@ public class DatabaseHandler extends QueryHandler {
                 manager.getConfiguration().incNumDocuments();
             } else {
                 final String nid = nodeId;
-                nodes.stream().filter(node -> node.getId().equals(nid)).forEach(node -> node.incNumDocuments());
+                nodes.stream().filter(node -> node.getId().equals(nid)).findFirst().ifPresent(node -> node.incNumDocuments());
             }
         } finally {
             manager.saveMetaData();
@@ -339,12 +350,15 @@ public class DatabaseHandler extends QueryHandler {
         try {
             MetaData metaData = manager.getConfiguration();
             List<Node> nodes = metaData.getNodes();
-            database
+            database // update nodes affinity
                     .getDocuments(documentIndexes)
                     .map(document -> document.get("_affinity").asText())
                     .forEach(affinity -> nodes.stream()
                             .filter(node -> node.getId().equals(affinity))
                             .findFirst().ifPresent(node -> node.decNumDocuments()));
+            documentIndexes.stream() // update self affinity
+                    .filter(id -> metaData.getNodeId().equals(id))
+                    .forEach(id -> metaData.decNumDocuments());
         } finally {
             manager.saveMetaData();
             manager.unlockMetaData();

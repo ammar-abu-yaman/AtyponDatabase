@@ -3,10 +3,15 @@ package com.atypon.project.worker;
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
-import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.handler.QueryHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import java.util.List;
 
 @SpringBootApplication
 public class WorkerApplication {
@@ -15,6 +20,8 @@ public class WorkerApplication {
 		DatabaseManager.initialize();
 		loadData();
 		SpringApplication.run(WorkerApplication.class, args);
+
+
 	}
 
 	static void loadData() throws JsonProcessingException {
@@ -29,21 +36,6 @@ public class WorkerApplication {
 
 		QueryHandler chain = manager.getHandlersFactory().getHandler(request);
 		chain.handle(request);
-
-//		for(String content: new String[] {
-//				"{\"title\": \"Harry Potter\", \"price\": 13.5}",
-//				"{\"title\": \"Jamaica\", \"price\": 13.5}",
-//				"{\"title\": \"C++\", \"price\": 200}",
-//				"{\"title\": \"Java\", \"price\": 200}",
-//		}) {
-//			chain.handle(Query
-//					.builder()
-//					.databaseName("Books")
-//					.queryType(QueryType.AddDocument)
-//					.payload(new ObjectMapper().readTree(content))
-//					.build()
-//			);
-//		}
 	}
 
 }

@@ -4,7 +4,7 @@ import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
-import com.atypon.project.worker.query.QueryHandler;
+import com.atypon.project.worker.handler.QueryHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,7 +35,7 @@ public class DocumentController {
 
     private String findDocumentHelper( Map<String, Object> requestBody, String databaseName, QueryType type) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        Query.DatabaseRequestBuilder builder = Query
+        Query.QueryBuilder builder = Query
                 .builder()
                 .originator(Query.Originator.User)
                 .databaseName(databaseName)
@@ -64,7 +64,7 @@ public class DocumentController {
     @PostMapping(value = "/document/add/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String addDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        Query.DatabaseRequestBuilder builder = Query
+        Query.QueryBuilder builder = Query
                 .builder()
                 .originator(Query.Originator.User)
                 .databaseName(databaseName)
@@ -83,7 +83,7 @@ public class DocumentController {
     @PostMapping(value = "/document/update/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String updateDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        Query.DatabaseRequestBuilder builder = Query
+        Query.QueryBuilder builder = Query
                 .builder()
                 .originator(Query.Originator.User)
                 .databaseName(databaseName)
@@ -110,7 +110,7 @@ public class DocumentController {
     @PostMapping(value = "/document/delete/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
     public String deleteDocument(@RequestBody Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
-        Query.DatabaseRequestBuilder builder = Query
+        Query.QueryBuilder builder = Query
                 .builder()
                 .originator(Query.Originator.User)
                 .databaseName(databaseName)

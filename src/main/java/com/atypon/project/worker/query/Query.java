@@ -13,7 +13,7 @@ import java.util.Set;
 public class Query implements Serializable {
 
     public enum Originator { User, Broadcaster, Deferrer, SelfUpdate }
-    public enum Status { Accepted, Rejected }
+    public enum Status { Accepted, Rejected, Deferred }
 
     @Builder.Default
     private Status status = Status.Accepted;

@@ -1,8 +1,8 @@
-package com.atypon.project.worker.lock;
+package com.atypon.project.worker.handler;
 
+import com.atypon.project.worker.lock.LockService;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
-import com.atypon.project.worker.query.QueryHandler;
 
 import java.util.concurrent.locks.Lock;
 
@@ -15,35 +15,58 @@ public class LockHandler extends QueryHandler {
     }
 
     @Override
-    public void handle(Query request) {
-        switch (request.getQueryType()) {
+    public void handle(Query query) {
+        switch (query.getQueryType()) {
             case FindDocument:
             case FindDocuments:
-                handleRead(request);
+                handleRead(query);
                 return;
             case AddDocument:
             case DeleteDocument:
             case UpdateDocument:
-                handleWrite(request);
+                handleWrite(query);
                 return;
             case Login:
-                handleLogin(request);
+                handleLogin(query);
+                return;
+            case RegisterUser:
+                handleRegister(query);
                 return;
             default:
-                handleSensitive(request);
+                handleSensitive(query);
                 return;
         }
     }
 
-    private void handleLogin(Query request) {
+    private void handleRegister(Query query) {
+        Lock globalLock = lockService.getGlobalLock().readLock();
         Lock lock = lockService.getLock("_Users").readLock();
         try {
-            System.out.println("locked for login");
+            System.out.println("locked for Registering");
             lock.lock();
+            globalLock.lock();
+            pass(query);
+        } finally {
+            System.out.println("unlocked for registering");
+            globalLock.unlock();
+            lock.unlock();
+        }
+    }
+
+    private void handleLogin(Query request) {
+        Lock globalLock = lockService.getGlobalLock().readLock();
+        Lock lock = lockService.getLock("_Users").readLock();
+        try {
+            globalLock.lock();
+            lock.lock();
+
+            System.out.println("locked for login");
+
             pass(request);
 
         } finally {
             System.out.println("unlocked login");
+            globalLock.unlock();
             lock.unlock();
         }
     }

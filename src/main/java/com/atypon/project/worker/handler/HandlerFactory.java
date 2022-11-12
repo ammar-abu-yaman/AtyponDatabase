@@ -1,7 +1,11 @@
-package com.atypon.project.worker.query;
+package com.atypon.project.worker.handler;
 
+import com.atypon.project.worker.handler.QueryHandler;
+import com.atypon.project.worker.handler.RegisterHandler;
+import com.atypon.project.worker.query.Query;
+import com.atypon.project.worker.query.QueryType;
 import com.atypon.project.worker.user.LoginHandler;
-import com.atypon.project.worker.brodcast.BroadcastHandler;
+import com.atypon.project.worker.handler.BroadcastHandler;
 import com.atypon.project.worker.core.DatabaseManager;
 
 import java.util.Arrays;
@@ -37,6 +41,15 @@ public class HandlerFactory {
         // case of a login request
         if(request.getQueryType() == QueryType.Login) {
             handlerChain.setNext(new LoginHandler());
+            return handlerChain;
+        }
+
+        if(request.getQueryType() == QueryType.RegisterUser) {
+            handlerChain
+                    .setNext(new RegisterHandler())
+                    .setNext(manager.getIndexService().getHandler())
+                    .setNext(manager.getDatabaseService().getHandler())
+                    .setNext(new BroadcastHandler());
             return handlerChain;
         }
 

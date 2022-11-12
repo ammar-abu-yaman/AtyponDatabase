@@ -20,7 +20,7 @@ public class DirectoryDatabase extends Database {
     public DirectoryDatabase(String name, File dataDirectory) {
         super(name, dataDirectory);
         this.databaseDirectory = dataDirectory.toPath().resolve(name).toFile();
-        if(!databaseDirectory.exists()) { // create a directory if not exists
+        if (!databaseDirectory.exists()) { // create a directory if not exists
             databaseDirectory.mkdirs();
         }
     }
@@ -45,18 +45,19 @@ public class DirectoryDatabase extends Database {
         try {
             documentFile.createNewFile();
         } catch (IOException e) {
-            /*this should never happen*/
+            /* this should never happen */
         }
-        try(PrintWriter writer = new PrintWriter(documentFile);) {
+        try (PrintWriter writer = new PrintWriter(documentFile);) {
             writer.write(document.toString());
-        } catch (FileNotFoundException e) { /*this error should never happen*/ }
+        } catch (FileNotFoundException e) {
+            /* this error should never happen */ }
     }
 
     @Override
     public void deleteDocument(String docId) {
         Path filePath = databaseDirectory.toPath().resolve(docId + ".json");
         File documentFile = filePath.toFile();
-        if(documentFile.exists() && documentFile.isFile())
+        if (documentFile.exists() && documentFile.isFile())
             documentFile.delete();
     }
 
@@ -68,18 +69,20 @@ public class DirectoryDatabase extends Database {
         try {
             Map<String, Object> document = mapper.convertValue(
                     mapper.readTree(documentFile),
-                    new TypeReference<Map<String, Object>>(){});
+                    new TypeReference<Map<String, Object>>() {
+                    });
 
-            for (Iterator<Map.Entry<String, JsonNode>> it = fieldsToUpdate.fields(); it.hasNext(); ) {
+            for (Iterator<Map.Entry<String, JsonNode>> it = fieldsToUpdate.fields(); it.hasNext();) {
                 Map.Entry<String, JsonNode> entry = it.next();
                 document.put(entry.getKey(), entry.getValue());
             }
 
             JsonNode updatedDocument = mapper.valueToTree(document);
-           try(PrintWriter writer = new PrintWriter(new FileOutputStream(documentFile, false))) {
-               writer.write(updatedDocument.toString());
-           }
-        } catch (IOException e) { }
+            try (PrintWriter writer = new PrintWriter(new FileOutputStream(documentFile, false))) {
+                writer.write(updatedDocument.toString());
+            }
+        } catch (IOException e) {
+        }
     }
 
     @Override
