@@ -13,10 +13,21 @@ import java.util.stream.Collectors;
 
 public class IndexService {
 
+    private static final int INDEX_DEGREE = 100;
+
+    private static IndexService INSTANCE;
+
+    public static IndexService getInstance() throws IOException, ClassNotFoundException {
+        if(INSTANCE != null)
+            return INSTANCE;
+        return INSTANCE = new IndexService(MetaData.getInstance());
+    }
+
+
     private Set<IndexKey> indexes;
     private File indexesDirectory;
 
-    public IndexService(MetaData metaData) {
+    private IndexService(MetaData metaData) {
         this.indexes = Collections.synchronizedSet(new HashSet<>());
         this.indexesDirectory = Paths.get(metaData.getIndexesDirectory()).toFile();
         if (!indexesDirectory.exists())
@@ -44,17 +55,21 @@ public class IndexService {
                             .forEach(document -> index.add(document.get(key.getField()), document.get("_id").asText()));
 
                     indexes.add(key);
-                    saveToFile(key, index);
+                    try {
+                        saveToFile(key, index);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 });
     }
 
-    public Optional<Index> getIndex(IndexKey key) {
+    public Optional<Index> getIndex(IndexKey key)  {
         if (!containsIndex(key))
             return null;
         return Optional.of(loadIndexFromDisk(key));
     }
 
-    public void createIndex(IndexKey key) {
+    public void createIndex(IndexKey key)  {
         Index index = new BTreeIndex(5, new JsonComparator());
         calculateIndex(key, index);
 
@@ -75,7 +90,7 @@ public class IndexService {
         }
     }
 
-    public void deleteIndex(IndexKey key) {
+    public void deleteIndex(IndexKey key)  {
         indexes.remove(key);
         deleteFile(key);
 
@@ -98,14 +113,13 @@ public class IndexService {
                 .forEach(document -> index.add(document.get(key.getField()), document.get("_id").asText()));
     }
 
-    public void saveToFile(IndexKey key, Index index) {
+    public void saveToFile(IndexKey key, Index index)  {
         try (ObjectOutputStream stream = new ObjectOutputStream(
                 new FileOutputStream(indexesDirectory.toPath().resolve(key.getName() + ".dat").toFile()))) {
             stream.writeObject(index);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch(Exception e) {
+            System.out.println("Can't write index to file");
+            throw new RuntimeException("Can't write index to file");
         }
     }
 
@@ -126,22 +140,19 @@ public class IndexService {
         indexesDirectory.toPath().resolve(key.getName() + ".dat").toFile().delete();
     }
 
-    private Index loadIndexFromDisk(IndexKey key) {
+    private Index loadIndexFromDisk(IndexKey key)  {
         try (ObjectInputStream stream = new ObjectInputStream(
                 new FileInputStream(indexesDirectory.toPath().resolve(key.getName() + ".dat").toFile()))) {
             Index index = (Index) stream.readObject();
             return index;
-        } catch (FileNotFoundException e) {
+        } catch (Exception e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            System.out.println("Unable to load exception from disk");
+            throw new RuntimeException("Unable to load exception from disk");
         }
-        return null;
     }
 
     public QueryHandler getHandler() {
-        return new IndexHandler(this);
+        return new IndexHandler();
     }
 }

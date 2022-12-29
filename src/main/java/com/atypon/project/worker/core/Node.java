@@ -10,6 +10,8 @@ import java.util.Objects;
 @NoArgsConstructor
 public class Node implements Serializable {
 
+    private static final long serialVersionUID = 3L;
+
     private String id;
     private String address;
     private int numDocuments;

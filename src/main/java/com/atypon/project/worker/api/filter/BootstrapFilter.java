@@ -9,9 +9,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+/*
+* Filter that prevent access to Bootstrap node's endpoints
+* through a worker node
+* */
 
-//@Component
-//@Order(1)
+@Component
+@Order(1)
 public class BootstrapFilter implements Filter {
 
     @Override
@@ -20,6 +24,7 @@ public class BootstrapFilter implements Filter {
         HttpServletResponse resp = (HttpServletResponse) response;
         String url = req.getRequestURI();
 
+        // user accessing /register endpoint on a worker node
         if(url.startsWith("/register") && !DatabaseManager.getInstance().getConfiguration().isBootstrap()) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
@@ -36,6 +41,7 @@ public class BootstrapFilter implements Filter {
             return;
         }
 
+        // pass to next filter
         chain.doFilter(request, response);
     }
 }

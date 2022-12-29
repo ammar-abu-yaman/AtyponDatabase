@@ -1,17 +1,26 @@
 package com.atypon.project.worker.core;
 
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serializable;
+import java.io.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-@Builder
+@Builder(access = AccessLevel.PRIVATE)
 @Getter
 @Setter
 public class MetaData implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private static MetaData INSTANCE;
 
     private String nodeId;
     private String address;
@@ -36,4 +45,27 @@ public class MetaData implements Serializable {
     public void decNumDocuments() {
         numDocuments--;
     }
+
+    public static MetaData getInstance() throws IOException, ClassNotFoundException {
+        if(INSTANCE != null)
+            return INSTANCE;
+        File file = Paths.get("db", "config.dat").toFile();
+        if(file.exists()) {
+            ObjectInputStream stream = new ObjectInputStream(new FileInputStream(file));
+            return INSTANCE = (MetaData) stream.readObject();
+        }
+
+        return INSTANCE = MetaData
+                .builder()
+                .isBootstrap(System.getenv("BOOTSTRAP") != null)
+                .bootstrapAddress("10.1.4.0")
+                .databasesNames(Stream.of("_Users").collect(Collectors.toList()))
+                .indexesIdentifiers(Stream.of("_Users:username").collect(Collectors.toList()))
+                .nodeId(System.getenv("NODE_ID") != null ? System.getenv("NODE_ID") : "node_1")
+                .savePath("db/")
+                .dataDirectory("db/data")
+                .indexesDirectory("db/index")
+                .build();
+    }
+
 }

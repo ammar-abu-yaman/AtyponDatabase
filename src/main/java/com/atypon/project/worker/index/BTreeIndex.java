@@ -11,14 +11,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class BTreeIndex implements Index {
+
+    private static final long serialVersionUID = 13L;
+
     BTreeNode root;
     Comparator<JsonNode> comparator;
-    int t; // minimum degree
+    int degree; // minimum degree
 
-    public BTreeIndex(int t, Comparator<JsonNode> comparator) {
+    public BTreeIndex(int degree, Comparator<JsonNode> comparator) {
         this.root = null;
         this.comparator = comparator;
-        this.t = t;
+        this.degree = degree;
     }
 
     @Override
@@ -35,13 +38,77 @@ public class BTreeIndex implements Index {
     }
 
     @Override
-    public void add(JsonNode key, String documentIndex) {
-        insert(key, documentIndex);
+    public void add(JsonNode key, String value) {
+        // case of a tree is empty
+        BTreeNode node = searchNode(key);
+        if(node != null) {
+            for(Entry<JsonNode, List<String>> entry: node.keys) {
+                if(!entry.getKey().equals(key))
+                    continue;
+                List<String> list = entry.getValue();
+                if(!list.contains(value))
+                    list.add(value);
+                break;
+            }
+            return;
+        }
+
+        if (root == null) {
+            root = new BTreeNode(degree, true);
+            List<String> list = new ArrayList<>();
+            list.add(value);
+            root.keys[0] = new Entry<>(key, list);
+            root.numNodes = 1;
+        } else {
+
+            if (root.numNodes == 2* degree -1) {
+                BTreeNode s = new BTreeNode(degree, false);
+                s.C[0] = root;
+                s.splitChild(0, root);
+                int i = 0;
+                if (less(s.keys[0].getKey(), key))
+                    i++;
+                s.C[i].insertNonFull(key, value);
+
+                root = s;
+            } else
+                root.insertNonFull(key, value);
+        }
     }
 
     @Override
-    public void delete(JsonNode key, String documentIndex) {
-        remove(key, documentIndex);
+    public void delete(JsonNode key, String value) {
+        // case of an empty tree
+        if (root == null)
+            return;
+
+        BTreeNode node = searchNode(key);
+        boolean doRemove = true;
+        if(node != null) {
+            for(Entry<JsonNode, List<String>> entry: node.keys) {
+                // entry doesn't have value
+                if(!entry.getKey().equals(key))
+                    continue;
+                List<String> list = entry.getValue();
+                if(list.contains(value))
+                    list.remove(value);
+                doRemove = list.isEmpty();
+                break;
+            }
+
+        }
+        if(!doRemove)
+            return;
+        root.remove(key);
+
+        if (root.numNodes ==0) {
+            BTreeNode tmp = root;
+            if (root.isLeaf)
+                root = null;
+            else
+                root = root.C[0];
+        }
+        return;
     }
 
     @Override
@@ -84,113 +151,25 @@ public class BTreeIndex implements Index {
         return comparator.compare(o1, o2) < 0;
     }
 
-    // The main function that inserts a new key in this B-Tree
-    public void insert(JsonNode key, String value) {
-        // If tree is empty
-        BTreeNode node = searchNode(key);
-        if(node != null) {
-            for(Entry<JsonNode, List<String>> entry: node.keys) {
-                if(!entry.getKey().equals(key))
-                    continue;
-                List<String> list = entry.getValue();
-                if(!list.contains(value))
-                    list.add(value);
-                break;
-            }
-            return;
-        }
-
-        if (root == null) {
-            root = new BTreeNode(t, true);
-            List<String> list = new ArrayList<>();
-            list.add(value);
-            root.keys[0] = new Entry<>(key, list);  // Insert key
-            root.n = 1;  // Update number of keys in root
-        } else {// If tree is not empty
-
-            // If root is full, then tree grows in height
-            if (root.n == 2*t-1) {
-                // Allocate memory for new root
-                BTreeNode s = new BTreeNode(t, false);
-
-                // Make old root as child of new root
-                s.C[0] = root;
-
-                // Split the old root and move 1 key to the new root
-                s.splitChild(0, root);
-
-                // New root has two children now.  Decide which of the
-                // two children is going to have new key
-                int i = 0;
-                if (less(s.keys[0].getKey(), key))
-                    i++;
-                s.C[i].insertNonFull(key, value);
-
-                // Change root
-                root = s;
-            } else  // If root is not full, call insertNonFull for root
-                root.insertNonFull(key, value);
-        }
-    }
-
-    // The main function that removes a new key in this B-Tree
-    void remove(JsonNode key, String value) {
-
-        // empty tree
-        if (root == null) {
-            return;
-        }
-
-        BTreeNode node = searchNode(key);
-        boolean doRemove = true;
-        if(node != null) {
-            for(Entry<JsonNode, List<String>> entry: node.keys) {
-                // entry doesn't have value
-                if(!entry.getKey().equals(key))
-                    continue;
-                List<String> list = entry.getValue();
-                if(list.contains(value))
-                    list.remove(value);
-                doRemove = list.isEmpty();
-                break;
-            }
-
-        }
-        if(!doRemove)
-            return;
-        // Call the remove function for root
-        root.remove(key);
-
-        // If the root node has 0 keys, make its first child as the new root
-        //  if it has a child, otherwise set root as null
-        if (root.n==0) {
-            BTreeNode tmp = root;
-            if (root.leaf)
-                root = null;
-            else
-                root = root.C[0];
-        }
-        return;
-    }
-
-
 
     private class BTreeNode implements Serializable {
+
+        private static final long serialVersionUID = 5L;
+
         Entry<JsonNode, List<String>> keys[];  // An array of keys
-        int t;      // Minimum degree (defines the range for number of keys)
-        BTreeNode[] C; // An array of child pointers
-        int n;     // Current number of keys
-        boolean leaf; // Is true when node is leaf. Otherwise false
+        int degree;      // Minimum degree (defines the range for number of keys)
+        BTreeNode[] C; // An array of children
+        int numNodes;     // Current number of keys
+        boolean isLeaf; // Is true when node is leaf. Otherwise false
 
 
         public BTreeNode(int t1, boolean leaf1) {
-            // Copy the given minimum degree and leaf property
-            t = t1;
-            leaf = leaf1;
+            degree = t1;
+            isLeaf = leaf1;
 
-            keys = new Entry[2*t-1];
-            C = new BTreeNode[2*t];
-            n = 0;
+            keys = new Entry[2* degree -1];
+            C = new BTreeNode[2* degree];
+            numNodes = 0;
         }
 
         private boolean less(JsonNode o1, JsonNode o2) {
@@ -201,47 +180,36 @@ public class BTreeIndex implements Index {
             return comparator.compare(o1, o2) > 0;
         }
 
-        // A utility function that returns the index of the first key that is
+        // utility function that returns the index of the first key that is
         // greater than or equal to k
         public int findKey(JsonNode key) {
             int idx=0;
-            while (idx<n && less(keys[idx].getKey(), key))
+            while (idx< numNodes && less(keys[idx].getKey(), key))
                 ++idx;
             return idx;
         }
 
-        // A function to remove the key k from the sub-tree rooted with this node
         public void remove(JsonNode key) {
             int idx = findKey(key);
 
-            // The key to be removed is present in this node
-            if (idx < n && keys[idx].getKey().equals(key)) {
-                // If the node is a leaf node - removeFromLeaf is called
-                // Otherwise, removeFromNonLeaf function is called
-                if (leaf)
+            // the key to be removed is present in this node
+            if (idx < numNodes && keys[idx].getKey().equals(key)) {
+                if (isLeaf)
                     removeFromLeaf(idx);
                 else
                     removeFromNonLeaf(idx);
             } else {
-                // If this node is a leaf node, then the key is not present in tree
-                if (leaf) { // key not present in the tree
+                // if this node is a leaf node, then the key is not present in tree
+                if (isLeaf) { // key not present in the tree
                     return;
                 }
 
-                // The key to be removed is present in the sub-tree rooted with this node
-                // The flag indicates whether the key is present in the sub-tree rooted
-                // with the last child of this node
-                boolean flag = ( (idx==n)? true : false );
+                boolean isPresent = ( (idx== numNodes)? true : false );
 
-                // If the child where the key is supposed to exist has less than t keys,
-                // we fill that child
-                if (C[idx].n < t)
+                if (C[idx].numNodes < degree)
                     fill(idx);
 
-                // If the last child has been merged, it must have merged with the previous
-                // child and so we recurse on the (idx-1)th child. Else, we recurse on the
-                // (idx)th child which now has at least t keys
-                if (flag && idx > n)
+                if (isPresent && idx > numNodes)
                     C[idx-1].remove(key);
                 else
                     C[idx].remove(key);
@@ -249,49 +217,37 @@ public class BTreeIndex implements Index {
             return;
         }
 
-        // A function to remove the idx-th key from this node - which is a leaf node
+        // function to remove the idx-th key from this node - which is a leaf node
         public void removeFromLeaf(int idx) {
 
-            // Move all the keys after the idx-th pos one place backward
-            for (int i=idx+1; i<n; ++i)
+            // move all the keys after the idx-th pos one place backward
+            for (int i = idx+1; i< numNodes; ++i)
                 keys[i-1] = keys[i];
 
-            // Reduce the count of keys
-            n--;
+            // reduce the count of keys
+            numNodes--;
 
             return;
         }
 
-        // A function to remove the idx-th key from this node - which is a non-leaf node
+        // function to remove the idx-th key from this node - which is a non-leaf node
         public void removeFromNonLeaf(int idx) {
 
             Entry<JsonNode, List<String>> k = keys[idx];
 
-            // If the child that precedes k (C[idx]) has atleast t keys,
-            // find the predecessor 'pred' of k in the subtree rooted at
-            // C[idx]. Replace k by pred. Recursively delete pred
-            // in C[idx]
-            if (C[idx].n >= t) {
-                Entry<JsonNode, List<String>> pred = getPred(idx);
-                keys[idx] = pred;
-                C[idx].remove(pred.getKey());
+            if (C[idx].numNodes >= degree) {
+                Entry<JsonNode, List<String>> predecessor = getPredecessor(idx);
+                keys[idx] = predecessor;
+                C[idx].remove(predecessor.getKey());
             }
 
-            // If the child C[idx] has less that t keys, examine C[idx+1].
-            // If C[idx+1] has atleast t keys, find the successor 'succ' of k in
-            // the subtree rooted at C[idx+1]
-            // Replace k by succ
-            // Recursively delete succ in C[idx+1]
-            else if  (C[idx+1].n >= t) {
-                Entry<JsonNode, List<String>> succ = getSucc(idx);
-                keys[idx] = succ;
-                C[idx+1].remove(succ.getKey());
+
+            else if  (C[idx+1].numNodes >= degree) {
+                Entry<JsonNode, List<String>> successor = getSuccessor(idx);
+                keys[idx] = successor;
+                C[idx+1].remove(successor.getKey());
             }
 
-            // If both C[idx] and C[idx+1] has less that t keys,merge k and all of C[idx+1]
-            // into C[idx]
-            // Now C[idx] contains 2t-1 keys
-            // Free C[idx+1] and recursively delete k from C[idx]
             else {
                 merge(idx);
                 C[idx].remove(k.getKey());
@@ -299,48 +255,39 @@ public class BTreeIndex implements Index {
             return;
         }
 
-        // A function to get predecessor of keys[idx]
-        public Entry<JsonNode, List<String>> getPred(int idx)
+        // function to get predecessor of keys[idx]
+        public Entry<JsonNode, List<String>> getPredecessor(int idx)
         {
-            // Keep moving to the right most node until we reach a leaf
+            // keep moving to the right most node until we reach a leaf
             BTreeNode cur=C[idx];
-            while (!cur.leaf)
-                cur = cur.C[cur.n];
+            while (!cur.isLeaf)
+                cur = cur.C[cur.numNodes];
 
-            // Return the last key of the leaf
-            return cur.keys[cur.n-1];
+            // return the last key of the leaf
+            return cur.keys[cur.numNodes -1];
         }
 
-        public Entry<JsonNode, List<String>> getSucc(int idx)
+        public Entry<JsonNode, List<String>> getSuccessor(int idx)
         {
 
-            // Keep moving the left most node starting from C[idx+1] until we reach a leaf
+            // keep moving the left most node starting from C[idx+1] until we reach a leaf
             BTreeNode cur = C[idx+1];
-            while (!cur.leaf)
+            while (!cur.isLeaf)
                 cur = cur.C[0];
 
-            // Return the first key of the leaf
+            // return the first key of the leaf
             return cur.keys[0];
         }
 
         // A function to fill child C[idx] which has less than t-1 keys
         public void fill(int idx) {
 
-            // If the previous child(C[idx-1]) has more than t-1 keys, borrow a key
-            // from that child
-            if (idx!=0 && C[idx-1].n>=t)
+            if (idx!=0 && C[idx-1].numNodes >= degree)
                 borrowFromPrev(idx);
-
-                // If the next child(C[idx+1]) has more than t-1 keys, borrow a key
-                // from that child
-            else if (idx!=n && C[idx+1].n>=t)
+            else if (idx!= numNodes && C[idx+1].numNodes >= degree)
                 borrowFromNext(idx);
-
-                // Merge C[idx] with its sibling
-                // If C[idx] is the last child, merge it with its previous sibling
-                // Otherwise merge it with its next sibling
             else {
-                if (idx != n)
+                if (idx != numNodes)
                     merge(idx);
                 else
                     merge(idx-1);
@@ -348,153 +295,112 @@ public class BTreeIndex implements Index {
             return;
         }
 
-        // A function to borrow a key from C[idx-1] and insert it
-// into C[idx]
         public void borrowFromPrev(int idx) {
 
             BTreeNode child=C[idx];
             BTreeNode sibling=C[idx-1];
 
-            // The last key from C[idx-1] goes up to the parent and key[idx-1]
-            // from parent is inserted as the first key in C[idx]. Thus, the  loses
-            // sibling one key and child gains one key
 
-            // Moving all key in C[idx] one step ahead
-            for (int i=child.n-1; i>=0; --i)
+            // moving all key in C[idx] one step ahead
+            for (int i = child.numNodes -1; i>=0; --i)
                 child.keys[i+1] = child.keys[i];
 
-            // If C[idx] is not a leaf, move all its child pointers one step ahead
-            if (!child.leaf) {
-                for(int i=child.n; i>=0; --i)
+            // iff C[idx] is not a leaf, move all its child pointers one step ahead
+            if (!child.isLeaf) {
+                for(int i = child.numNodes; i>=0; --i)
                     child.C[i+1] = child.C[i];
             }
 
-            // Setting child's first key equal to keys[idx-1] from the current node
             child.keys[0] = keys[idx-1];
 
-            // Moving sibling's last child as C[idx]'s first child
-            if(!child.leaf)
-                child.C[0] = sibling.C[sibling.n];
+            // moving sibling's last child as C[idx]'s first child
+            if(!child.isLeaf)
+                child.C[0] = sibling.C[sibling.numNodes];
 
-            // Moving the key from the sibling to the parent
-            // This reduces the number of keys in the sibling
-            keys[idx-1] = sibling.keys[sibling.n-1];
+            keys[idx-1] = sibling.keys[sibling.numNodes -1];
 
-            child.n += 1;
-            sibling.n -= 1;
+            child.numNodes += 1;
+            sibling.numNodes -= 1;
 
             return;
         }
-
-        // A function to borrow a key from the C[idx+1] and place
-        // it in C[idx]
         public void borrowFromNext(int idx) {
 
             BTreeNode child=C[idx];
             BTreeNode sibling=C[idx+1];
 
-            // keys[idx] is inserted as the last key in C[idx]
-            child.keys[(child.n)] = keys[idx];
+            child.keys[(child.numNodes)] = keys[idx];
 
-            // Sibling's first child is inserted as the last child
-            // into C[idx]
-            if (!(child.leaf))
-                child.C[(child.n)+1] = sibling.C[0];
+            if (!(child.isLeaf))
+                child.C[(child.numNodes)+1] = sibling.C[0];
 
-            //The first key from sibling is inserted into keys[idx]
             keys[idx] = sibling.keys[0];
 
-            // Moving all keys in sibling one step behind
-            for (int i=1; i<sibling.n; ++i)
+            for (int i = 1; i<sibling.numNodes; ++i)
                 sibling.keys[i-1] = sibling.keys[i];
 
-            // Moving the child pointers one step behind
-            if (!sibling.leaf) {
-                for(int i=1; i<=sibling.n; ++i)
+            if (!sibling.isLeaf) {
+                for(int i = 1; i<=sibling.numNodes; ++i)
                     sibling.C[i-1] = sibling.C[i];
             }
-
-            // Increasing and decreasing the key count of C[idx] and C[idx+1]
-            // respectively
-            child.n += 1;
-            sibling.n -= 1;
-
+            child.numNodes += 1;
+            sibling.numNodes -= 1;
             return;
         }
 
-        // A function to merge C[idx] with C[idx+1]
-// C[idx+1] is freed after merging
+
         public void merge(int idx) {
             BTreeNode child = C[idx];
             BTreeNode sibling = C[idx+1];
 
-            // Pulling a key from the current node and inserting it into (t-1)th
-            // position of C[idx]
-            child.keys[t-1] = keys[idx];
+            child.keys[degree -1] = keys[idx];
 
-            // Copying the keys from C[idx+1] to C[idx] at the end
-            for (int i=0; i<sibling.n; ++i)
-                child.keys[i+t] = sibling.keys[i];
+            for (int i = 0; i<sibling.numNodes; ++i)
+                child.keys[i+ degree] = sibling.keys[i];
 
-            // Copying the child pointers from C[idx+1] to C[idx]
-            if (!child.leaf)
+            if (!child.isLeaf)
             {
-                for(int i=0; i<=sibling.n; ++i)
-                    child.C[i+t] = sibling.C[i];
+                for(int i = 0; i<=sibling.numNodes; ++i)
+                    child.C[i+ degree] = sibling.C[i];
             }
 
-            // Moving all keys after idx in the current node one step before -
-            // to fill the gap created by moving keys[idx] to C[idx]
-            for (int i=idx+1; i<n; ++i)
+            for (int i = idx+1; i< numNodes; ++i)
                 keys[i-1] = keys[i];
 
-            // Moving the child pointers after (idx+1) in the current node one
-            // step before
-            for (int i=idx+2; i<=n; ++i)
+            for (int i = idx+2; i<= numNodes; ++i)
                 C[i-1] = C[i];
 
-            // Updating the key count of child and the current node
-            child.n += sibling.n+1;
-            n--;
+            child.numNodes += sibling.numNodes +1;
+            numNodes--;
 
             return;
         }
 
-        // A utility function to insert a new key in this node
-        // The assumption is, the node must be non-full when this
-        // function is called
-        public void insertNonFull(JsonNode key, String value) {
-            // Initialize index as index of rightmost element
-            int i = n-1;
 
-            // If this is a leaf node
-            if (leaf == true) {
-                // The following loop does two things
-                // a) Finds the location of new key to be inserted
-                // b) Moves all greater keys to one place ahead
+        public void insertNonFull(JsonNode key, String value) {
+            int i = numNodes -1;
+
+            if (isLeaf == true) {
                 while (i >= 0 && greater(keys[i].getKey(), key)) {
                     keys[i+1] = keys[i];
                     i--;
                 }
                 List<String> list = new ArrayList<>();
                 list.add(value);
-                // Insert the new key at found location
+                // insert the new key at found location
                 keys[i+1] = new Entry<>(key, list);
-                n = n+1;
+                numNodes = numNodes +1;
             }
             else {
-                // Find the child which is going to have the new key
+
                 while (i >= 0 && greater(keys[i].getKey(), key))
                     i--;
 
-                // See if the found child is full
-                if (C[i+1].n == 2*t-1) {
-                    // If the child is full, then split it
+
+                if (C[i+1].numNodes == 2* degree -1) {
+
                     splitChild(i+1, C[i+1]);
 
-                    // After split, the middle key of C[i] goes up and
-                    // C[i] is splitted into two.  See which of the two
-                    // is going to have the new key
                     if (less(keys[i+1].getKey(), key))
                         i++;
                 }
@@ -502,84 +408,61 @@ public class BTreeIndex implements Index {
             }
         }
 
-        // A utility function to split the child y of this node
-        // Note that y must be full when this function is called
-        public void splitChild(int i, BTreeNode y)
-        {
-            // Create a new node which is going to store (t-1) keys
-            // of y
-            BTreeNode z = new BTreeNode(y.t, y.leaf);
-            z.n = t - 1;
+        public void splitChild(int i, BTreeNode y) {
 
-            // Copy the last (t-1) keys of y to z
-            for (int j = 0; j < t-1; j++)
-                z.keys[j] = y.keys[j+t];
+            BTreeNode z = new BTreeNode(y.degree, y.isLeaf);
+            z.numNodes = degree - 1;
 
-            // Copy the last t children of y to z
-            if (y.leaf == false) {
-                for (int j = 0; j < t; j++)
-                    z.C[j] = y.C[j+t];
+            for (int j = 0; j < degree -1; j++)
+                z.keys[j] = y.keys[j+ degree];
+
+            if (y.isLeaf == false) {
+                for (int j = 0; j < degree; j++)
+                    z.C[j] = y.C[j+ degree];
             }
 
-            // Reduce the number of keys in y
-            y.n = t - 1;
+            y.numNodes = degree - 1;
 
-            // Since this node is going to have a new child,
-            // create space of new child
-            for (int j = n; j >= i+1; j--)
+            for (int j = numNodes; j >= i+1; j--)
                 C[j+1] = C[j];
 
-            // Link the new child to this node
             C[i+1] = z;
 
-            // A key of y will move to this node. Find location of
-            // new key and move all greater keys one space ahead
-            for (int j = n-1; j >= i; j--)
+            for (int j = numNodes -1; j >= i; j--)
                 keys[j+1] = keys[j];
 
-            // Copy the middle key of y to this node
-            keys[i] = y.keys[t-1];
+            keys[i] = y.keys[degree -1];
 
-            // Increment count of keys in this node
-            n = n + 1;
+            numNodes = numNodes + 1;
         }
 
-        // Function to traverse all nodes in a subtree rooted with this node
         public void traverse() {
-            // There are n keys and n+1 children, traverse through n keys
-            // and first n children
+
             int i;
-            for (i = 0; i < n; i++) {
-                // If this is not leaf, then before printing key[i],
-                // traverse the subtree rooted with child C[i].
-                if (leaf == false)
+            for (i = 0; i < numNodes; i++) {
+
+                if (isLeaf == false)
                     C[i].traverse();
                 System.out.print(" " + keys[i]);
             }
 
-            // Print the subtree rooted with last child
-            if (leaf == false)
+            if (isLeaf == false)
                 C[i].traverse();
         }
 
-        // Function to search key k in subtree rooted with this node
         public BTreeNode search(JsonNode k) {
 
-            // Find the first key greater than or equal to k
             int i = 0;
             try {
-                while (i < n && greater(k, keys[i].getKey()))
+                while (i < numNodes && greater(k, keys[i].getKey()))
                     i++;
 
-                // If the found key is equal to k, return this node
-                if (i < n && keys[i].getKey().equals(k))
+                if (i < numNodes && keys[i].getKey().equals(k))
                     return this;
 
-                // If key is not found here and this is a leaf node
-                if (leaf == true)
+                if (isLeaf == true)
                     return null;
 
-                // Go to the appropriate child
                 return C[i].search(k);
             } catch (NullPointerException e) {
                 throw e;

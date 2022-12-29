@@ -4,6 +4,9 @@ import java.io.Serializable;
 import java.util.Objects;
 
 public class Entry<K, V> implements Serializable {
+
+    private static final long serialVersionUID = 2L;
+
     private K key;
     private V value;
 

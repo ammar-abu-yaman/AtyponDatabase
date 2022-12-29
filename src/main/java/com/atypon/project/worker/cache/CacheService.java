@@ -1,18 +1,28 @@
 package com.atypon.project.worker.cache;
 
 import com.atypon.project.worker.core.MetaData;
+import com.atypon.project.worker.database.DatabaseService;
 import com.atypon.project.worker.handler.CacheHandler;
 import com.atypon.project.worker.handler.QueryHandler;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 public class CacheService {
+    private static final int CACHE_SIZE = 1024;
+    private static CacheService INSTANCE;
 
-    long databaseCapacity;
-    Map<String, Cache<CacheEntry, String>> caches;
+    public static CacheService getInstance() throws IOException, ClassNotFoundException {
+        if(INSTANCE != null)
+            return INSTANCE;
+        return INSTANCE = new CacheService(CACHE_SIZE, MetaData.getInstance());
+    }
 
-    public CacheService(long databaseCapacity, MetaData metaData) {
+    private long databaseCapacity;
+    private Map<String, Cache<CacheEntry, String>> caches;
+
+    private CacheService(long databaseCapacity, MetaData metaData) {
         this.databaseCapacity = databaseCapacity;
         this.caches = new HashMap<>();
 

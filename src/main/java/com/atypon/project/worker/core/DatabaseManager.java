@@ -2,7 +2,6 @@ package com.atypon.project.worker.core;
 
 import com.atypon.project.worker.handler.QueryHandler;
 import com.atypon.project.worker.handler.RegisterHandler;
-import com.atypon.project.worker.user.User;
 import com.atypon.project.worker.cache.CacheService;
 import com.atypon.project.worker.database.DatabaseService;
 import com.atypon.project.worker.index.IndexService;
@@ -24,16 +23,25 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static java.lang.String.format;
 
 public class DatabaseManager {
 
     private static DatabaseManager INSTANCE;
+
+    private DatabaseManager() { }
+
+    private static final int DEFAULT_CONGESTION_THRESHOLD = 1000;
+
+
+    public static DatabaseManager getInstance() {
+        if (INSTANCE == null)
+            initialize();
+        return INSTANCE;
+    }
 
     private MetaData metaData;
     private Lock metaDataLock;
@@ -42,89 +50,69 @@ public class DatabaseManager {
     private CacheService cacheService;
     private LockService lockService;
 
+    private AtomicInteger numLiveRequests = new AtomicInteger(0);
+    private AtomicInteger redirectNodeIndex = new AtomicInteger(0);
+    private int congestionThreshold;
+
     private HandlerFactory handlersFactory;
 
-    private DatabaseManager() {
-    }
 
     public static void initialize() {
         INSTANCE = new DatabaseManager();
         INSTANCE.metaDataLock = new ReentrantLock();
-        INSTANCE.metaData = MetaData
-                .builder()
-                .isBootstrap(System.getenv("BOOTSTRAP") != null) // TODO: Change this
-                .bootstrapAddress("10.1.4.0")
-                .databasesNames(Stream.of("_Users", "Books", "Movies").collect(Collectors.toList()))
-                .indexesIdentifiers(Stream.of("_Users:username").collect(Collectors.toList()))
-                .nodeId(System.getenv("NODE_ID") != null ? System.getenv("NODE_ID") : "node_1") // assumed to be a
-                .savePath("db/")
-                .dataDirectory("db/data")
-                .indexesDirectory("db/index")
-                .build();
+        try {
+            INSTANCE.metaData = MetaData.getInstance();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Something went wrong while loading meta data");
+            System.exit(1);
+        }
+
+
+        try { // the environment variable might be missing or incorrectly formatted
+            INSTANCE.congestionThreshold = Integer.parseInt(System.getenv("CONGESTION_THRESHOLD"));
+        } catch (Exception e) {
+            INSTANCE.congestionThreshold = DEFAULT_CONGESTION_THRESHOLD;
+        }
 
         File savePath = Paths.get(INSTANCE.metaData.getSavePath()).toFile();
         if (!savePath.exists()) {
             savePath.mkdirs();
         }
 
-        INSTANCE.databaseService = new DatabaseService(INSTANCE.metaData);
-        INSTANCE.lockService = new LockService(INSTANCE.metaData);
-        INSTANCE.indexService = new IndexService(INSTANCE.metaData);
-        INSTANCE.cacheService = new CacheService(1024, INSTANCE.metaData);
-        INSTANCE.handlersFactory = new HandlerFactory();
-
-        INSTANCE.debugInitialize();
-
-//        try {
-//            if(INSTANCE.getConfiguration().isBootstrap()) {
-//                INSTANCE.initializeAsBootstrap();
-//            } else {
-//                INSTANCE.initializeAsWorker();
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            System.out.println("Something went wrong while initializing node");
-//            System.exit(1);
-//        }
-
-    }
-
-    private void debugInitialize() {
-        List<Node> nodes = INSTANCE.getConfiguration().getNodes();
-        if (INSTANCE.getConfiguration().getNodeId().equals("node_1")) {
-            nodes.add(new Node("node_2", "10.1.4.2", 0, 0));
-        } else {
-            nodes.add(new Node("node_1", "10.1.4.1", 0, 0));
+        try {
+            INSTANCE.databaseService = DatabaseService.getInstance();
+            INSTANCE.lockService = LockService.getInstance();
+            INSTANCE.indexService = IndexService.getInstance().getInstance();
+            INSTANCE.cacheService = CacheService.getInstance();
+        } catch (Exception e) {
+            System.out.println("Something Went wrong while initializing services");
+            System.exit(-1);
         }
 
-        Stream.of("ammar", "ahmad", "hadeel").forEach(name -> {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode json = new ObjectMapper().valueToTree(
-                    new User(
-                            name,
-                            BCrypt.hashpw("12345", BCrypt.gensalt()),
-                            User.Role.Viewer,
-                                    name.equals("hadeel") ? "node_2" : "node_1"));
-            Map<String, Object> result = mapper.convertValue(json, new TypeReference<Map<String, Object>>() {
-            });
-            result.put("_id", name);
-            result.put("_affinity", name);
-            json = mapper.valueToTree(result);
-            Query request = Query.builder()
-                    .originator(Query.Originator.Broadcaster)
-                    .databaseName("_Users")
-                    .queryType(QueryType.AddDocument)
-                    .payload(json)
-                    .build();
-            handlersFactory.getHandler(request).handle(request);
-        });
+
+        INSTANCE.handlersFactory = new HandlerFactory();
+
+        try {
+            if(INSTANCE.getConfiguration().isBootstrap()) {
+                INSTANCE.initializeAsBootstrap();
+            } else {
+                INSTANCE.initializeAsWorker();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Something went wrong while initializing node");
+            System.exit(1);
+        }
+
     }
+
+
 
     private void initializeAsWorker() throws JsonProcessingException {
         initializeUsers();
         initializeNodes();
     }
-
 
     private void initializeAsBootstrap() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
@@ -152,10 +140,10 @@ public class DatabaseManager {
         handlersFactory.getHandler(request).handle(request);
 
         List<JsonNode> users = mapper.readValue("[\n" +
-                    "    {\"username\": \"ammar\", \"password\": \"12345\", \"role\": \"Standard\"},\n" +
-                    "    {\"username\": \"ahmad\", \"password\": \"12345\", \"role\": \"Standard\"},\n" +
-                    "    {\"username\": \"jamal\", \"password\": \"12345\", \"role\": \"Standard\"}\n" +
-                    "]", TypeFactory.defaultInstance().constructCollectionType(List.class, JsonNode.class));
+                "    {\"username\": \"ammar\", \"password\": \"12345\", \"role\": \"Admin\"},\n" +
+                "    {\"username\": \"jamal\", \"password\": \"12345\", \"role\": \"Viewer\"},\n" +
+                "    {\"username\": \"khalid\", \"password\": \"12345\", \"role\": \"Editor\"}\n" +
+                "]", TypeFactory.defaultInstance().constructCollectionType(List.class, JsonNode.class));
         System.out.println(users.toString());
         QueryHandler handler = new RegisterHandler();
         handler
@@ -177,7 +165,7 @@ public class DatabaseManager {
     private void initializeUsers() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         String bootstrapAddress = getConfiguration().getBootstrapAddress();
-        String url = "http://" + bootstrapAddress + ":8080" + "/_internal/get_users";
+        String url = String.format("http://%s:8000/_internal/get_users", bootstrapAddress);
         ResponseEntity<String> response = new RestTemplate().getForEntity(url, String.class);
 
         List<JsonNode> users = mapper.readValue(response.getBody(), TypeFactory.defaultInstance().constructCollectionType(List.class, JsonNode.class));
@@ -195,12 +183,34 @@ public class DatabaseManager {
     private void initializeNodes() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         String bootstrapAddress = getConfiguration().getBootstrapAddress();
-        String url = "http://" + bootstrapAddress + ":8080" + "/_internal/get_nodes";
+        String url = String.format("http://%s:8000/_internal/get_nodes", bootstrapAddress);
         ResponseEntity<String> response = new RestTemplate().getForEntity(url, String.class);
         List<Node> nodes = mapper.readValue(response.getBody(), TypeFactory.defaultInstance().constructCollectionType(List.class, Node.class));
         metaData.setNodes(nodes.stream().filter(node -> !node.getId().equals(metaData.getNodeId())).collect(Collectors.toList()));
         saveMetaData();
     }
+
+    public int getNumRequests() {
+        return numLiveRequests.get();
+    }
+
+    public int incrementNumRequests() {
+        return numLiveRequests.incrementAndGet();
+    }
+
+    public int decrementNumRequests() {
+        return numLiveRequests.decrementAndGet();
+    }
+
+    public int getCongestionThreshold() {
+        return congestionThreshold;
+    }
+
+    public int getRedirectNodeIndexAndIncrement() {
+        return redirectNodeIndex.getAndSet((redirectNodeIndex.get() + 1) % metaData.getNodes().size());
+    }
+
+
 
 
     public MetaData getConfiguration() {
@@ -215,15 +225,14 @@ public class DatabaseManager {
         metaDataLock.unlock();
     }
 
-    public void saveMetaData() {
+    public void saveMetaData()  {
         lockMetaData();
         try (ObjectOutputStream stream = new ObjectOutputStream(
                 new FileOutputStream(Paths.get(metaData.getSavePath()).resolve("config.dat").toFile()))) {
             stream.writeObject(metaData);
-        } catch (FileNotFoundException e) {
+        } catch (Exception e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Can't save meta data");
         } finally {
             unlockMetaData();
         }
@@ -247,12 +256,6 @@ public class DatabaseManager {
 
     public HandlerFactory getHandlersFactory() {
         return handlersFactory;
-    }
-
-    public static DatabaseManager getInstance() {
-        if (INSTANCE == null)
-            initialize();
-        return INSTANCE;
     }
 
 }

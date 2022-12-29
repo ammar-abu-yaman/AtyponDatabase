@@ -2,28 +2,27 @@ package com.atypon.project.worker.handler;
 
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
-import com.atypon.project.worker.user.LoginHandler;
 import com.atypon.project.worker.core.DatabaseManager;
 import java.util.Arrays;
 
 public class HandlerFactory {
     DatabaseManager manager = DatabaseManager.getInstance();
 
-    public QueryHandler getHandler(Query request) {
-        switch (request.getOriginator()) {
+    public QueryHandler getHandler(Query query) {
+        switch (query.getOriginator()) {
             case User:
-                return getUserHandler(request);
+                return getUserHandler(query);
             case Broadcaster:
-                return getBroadcastHandler(request);
+                return getBroadcastHandler(query);
             case Deferrer:
-                return getDeferrerHandler(request);
+                return getDeferrerHandler(query);
             case SelfUpdate:
-                return getSelfUpdateHandler(request);
+                return getSelfUpdateHandler(query);
         }
         return null;
     }
 
-    private QueryHandler getSelfUpdateHandler(Query request) {
+    private QueryHandler getSelfUpdateHandler(Query query) {
         QueryHandler handlerChain = manager.getCacheService().getHandler();
         handlerChain
                 .setNext(manager.getIndexService().getHandler())
@@ -58,6 +57,7 @@ public class HandlerFactory {
         } else {
             handlerChain
                     .setNext(manager.getCacheService().getHandler())
+                    .setNext(new SchemaHandler())
                     .setNext(manager.getIndexService().getHandler())
                     .setNext(manager.getDatabaseService().getHandler())
                     .setNext(new BroadcastHandler());
@@ -65,28 +65,29 @@ public class HandlerFactory {
         return handlerChain;
     }
 
-    private QueryHandler getBroadcastHandler(Query request) {
+    private QueryHandler getBroadcastHandler(Query query) {
         QueryHandler handlerChain = manager.getLockService().getHandler();
 
         // case of creating of deleting indexes
-        if(oneOf(request, QueryType.CreateIndex, QueryType.DeleteIndex)) {
+        if(oneOf(query, QueryType.CreateIndex, QueryType.DeleteIndex)) {
             handlerChain
                     .setNext(manager.getCacheService().getHandler())
                     .setNext(manager.getIndexService().getHandler());
         } else {
             handlerChain
                     .setNext(manager.getCacheService().getHandler())
+                    .setNext(new SchemaHandler())
                     .setNext(manager.getIndexService().getHandler())
                     .setNext(manager.getDatabaseService().getHandler());
         }
         return handlerChain;
     }
 
-    //TODO: implement deferred handler
-    private QueryHandler getDeferrerHandler(Query request) {
+    private QueryHandler getDeferrerHandler(Query query) {
         QueryHandler handlerChain = manager.getLockService().getHandler();
         handlerChain
                 .setNext(manager.getCacheService().getHandler())
+                .setNext(new SchemaHandler())
                 .setNext(manager.getIndexService().getHandler())
                 .setNext(manager.getDatabaseService().getHandler())
                 .setNext(new BroadcastHandler());

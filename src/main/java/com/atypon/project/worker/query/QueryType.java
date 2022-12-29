@@ -10,5 +10,6 @@ public enum QueryType {
     UpdateDocument,
     FindDocument,
     FindDocuments,
-    RegisterUser, Login
+    RegisterUser,
+    Login
 }

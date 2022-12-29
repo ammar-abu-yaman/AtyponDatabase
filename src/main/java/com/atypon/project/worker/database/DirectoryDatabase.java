@@ -26,31 +26,38 @@ public class DirectoryDatabase extends Database {
     }
 
     @Override
-    public void drop() {
+    public void drop()  {
         try {
             Files.walk(databaseDirectory.toPath())
                     .sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
                     .forEach(File::delete);
-        } catch (IOException e) {
+        } catch (Exception e) {
+            System.out.println("Unable to drop database");
             e.printStackTrace();
+            throw new RuntimeException("Unable to drop database");
         }
         databaseDirectory.delete();
     }
 
     @Override
-    public void addDocument(String docIdx, JsonNode document) {
+    public void addDocument(String docIdx, JsonNode document)  {
         Path filePath = databaseDirectory.toPath().resolve(docIdx + ".json");
         File documentFile = filePath.toFile();
         try {
             documentFile.createNewFile();
-        } catch (IOException e) {
-            /* this should never happen */
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Can't create new file to store document");
+            throw new RuntimeException("Can't create new file to store document");
         }
         try (PrintWriter writer = new PrintWriter(documentFile);) {
             writer.write(document.toString());
         } catch (FileNotFoundException e) {
-            /* this error should never happen */ }
+            /*Shouldn't happen as the file is created up*/
+            e.printStackTrace();
+            return;
+        }
     }
 
     @Override
@@ -62,7 +69,7 @@ public class DirectoryDatabase extends Database {
     }
 
     @Override
-    public void updateDocument(JsonNode fieldsToUpdate, String docId) {
+    public void updateDocument(JsonNode fieldsToUpdate, String docId)  {
         Path filePath = databaseDirectory.toPath().resolve(docId + ".json");
         File documentFile = filePath.toFile();
         ObjectMapper mapper = new ObjectMapper();
@@ -81,7 +88,9 @@ public class DirectoryDatabase extends Database {
             try (PrintWriter writer = new PrintWriter(new FileOutputStream(documentFile, false))) {
                 writer.write(updatedDocument.toString());
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Unable to update document");
         }
     }
 
@@ -90,10 +99,10 @@ public class DirectoryDatabase extends Database {
         File documentFile = databaseDirectory.toPath().resolve(docId + ".json").toFile();
         try {
             return new ObjectMapper().readTree(documentFile);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
+            throw new RuntimeException("Unable to read document");
         }
-        return null;
     }
 
     @Override
@@ -103,23 +112,18 @@ public class DirectoryDatabase extends Database {
                 .map(docId -> getDocument(docId));
     }
 
-    @Override
-    public Stream<JsonNode> getDocuments(Stream<String> documentIndices) {
-        return documentIndices
-                .map(documentIndex -> getDocument(documentIndex));
-    }
 
     @Override
-    public Stream<JsonNode> getAllDocuments() {
+    public Stream<JsonNode> getAllDocuments()  {
         try {
             return Files.walk(databaseDirectory.toPath())
                     .skip(1)
                     .map(path -> path.getFileName().toString().split("\\.")[0])
                     .map(documentIndex -> getDocument(documentIndex));
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
+            throw new RuntimeException("Unable to read documents");
         }
-        return null;
     }
 
     @Override

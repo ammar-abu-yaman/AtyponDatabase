@@ -2,6 +2,8 @@ package com.atypon.project.worker.api.controller;
 
 import com.atypon.project.worker.core.DatabaseManager;
 import com.atypon.project.worker.core.Entry;
+import com.atypon.project.worker.core.MetaData;
+import com.atypon.project.worker.core.Node;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
 import com.atypon.project.worker.handler.QueryHandler;
@@ -9,31 +11,36 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.lang.String.format;
+
 @RestController
 public class DocumentController {
 
+    ObjectMapper mapper = new ObjectMapper();
     DatabaseManager manager = DatabaseManager.getInstance();
 
     @GetMapping(value="/document/find/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
-    public String findDocument(@RequestBody(required = false) Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
+    public ResponseEntity<String> findDocument(@RequestBody(required = false) Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         return findDocumentHelper(requestBody, databaseName, QueryType.FindDocument);
     }
 
     @GetMapping(value="/document/finds/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
-    public String findDocuments(@RequestBody(required = false) Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
+    public ResponseEntity<String> findDocuments(@RequestBody(required = false) Map<String, Object> requestBody, @PathVariable("database") String databaseName) {
         return findDocumentHelper(requestBody, databaseName, QueryType.FindDocuments);
     }
 
 
-    private String findDocumentHelper( Map<String, Object> requestBody, String databaseName, QueryType type) {
+    private ResponseEntity<String> findDocumentHelper(Map<String, Object> requestBody, String databaseName, QueryType type) {
         JsonNode json = new ObjectMapper().valueToTree(requestBody);
         Query.QueryBuilder builder = Query
                 .builder()
@@ -41,24 +48,48 @@ public class DocumentController {
                 .databaseName(databaseName)
                 .queryType(type);
 
+        // redirect this request to another node in the system
+        if(manager.getNumRequests() >= manager.getCongestionThreshold()) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(mapper.valueToTree(requestBody).toString(), headers);
+
+            // send request to other node
+            ResponseEntity<String> response =  new RestTemplate().postForEntity(URI.create(String.format("http://%s:8080/document/%s/%s",
+                    getNextNodeAddress(),
+                    type == QueryType.FindDocument ? "find" : "finds",
+                    databaseName
+            )), entity, String.class);
+            // return node's request
+            return response;
+        }
+
+        // check filter for errors
         if(json.has("filter")) {
             Optional<String> err = getFilterErrorMessage(json);
             if(err.isPresent())
-                return err.get();
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(err.get());
             builder.filterKey(getFilter(json));
         }
 
+        // check required properties for errors
         if(json.has("requiredProperties")) {
             Optional<String> err = getRequiredPropertiesError(json);
             if(err.isPresent())
-                return err.get();
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(err.get());
             builder.requiredProperties(getRequiredProperties(json));
         }
 
         Query request = builder.build();
         QueryHandler handler = manager.getHandlersFactory().getHandler(request);
         handler.handle(request);
-        return request.getStatus() + " => " + request.getRequestOutput();
+        return ResponseEntity
+                .status(HttpStatus.ACCEPTED)
+                .body(request.getRequestOutput().toString());
     }
 
     @PostMapping(value = "/document/add/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
@@ -77,7 +108,7 @@ public class DocumentController {
         Query request = builder.payload(json.get("payload")).build();
         QueryHandler handler = manager.getHandlersFactory().getHandler(request);
         handler.handle(request);
-        return request.getStatus() + " => " + request.getRequestOutput();
+        return request.getRequestOutput().toString();
     }
 
     @PostMapping(value = "/document/update/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
@@ -89,8 +120,8 @@ public class DocumentController {
                 .databaseName(databaseName)
                 .queryType(QueryType.UpdateDocument);
 
-        if(!json.has("payload") || !json.get("payload").isObject() || json.get("payload").size() != 1) {
-            return "Payload field is invalid";
+        if(!json.has("payload") || !json.get("payload").isObject()) {
+            return "\"Payload field is invalid\"";
         }
 
         Optional<String> filterError = getFilterErrorMessage(json);
@@ -104,7 +135,7 @@ public class DocumentController {
 
         QueryHandler handler = manager.getHandlersFactory().getHandler(request);
         handler.handle(request);
-        return request.getStatus() + " => " + request.getRequestOutput();
+        return request.getRequestOutput().toString();
     }
 
     @PostMapping(value = "/document/delete/{database}", consumes = { MediaType.APPLICATION_JSON_VALUE })
@@ -126,10 +157,14 @@ public class DocumentController {
 
         QueryHandler handler = manager.getHandlersFactory().getHandler(request);
         handler.handle(request);
-        return request.getStatus() + " => " + request.getRequestOutput();
+        return request.getRequestOutput().toString();
     }
 
-
+    private String getNextNodeAddress() {
+        List<Node> nodes = manager.getConfiguration().getNodes();
+        int id = manager.getRedirectNodeIndexAndIncrement();
+        return nodes.get(id).getAddress();
+    }
 
     private Entry<String, JsonNode> getFilter(JsonNode json) {
         Map.Entry<String, JsonNode> filter = json.get("filter").fields().next();
@@ -166,7 +201,7 @@ public class DocumentController {
         try {
              list = mapper.readValue(json.get("requiredProperties").toString(), TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
         } catch (JsonProcessingException e) {
-            /* should never happen */
+            e.printStackTrace();
         }
         return list;
     }

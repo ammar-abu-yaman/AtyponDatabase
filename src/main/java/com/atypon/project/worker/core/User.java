@@ -1,9 +1,11 @@
-package com.atypon.project.worker.user;
+package com.atypon.project.worker.core;
 
 import java.io.Serializable;
 import java.util.Objects;
 
 public class User implements Serializable {
+
+    private static final long serialVersionUID = 4L;
 
     public enum Role {Admin, Viewer, Editor}
 

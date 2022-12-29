@@ -12,10 +12,18 @@ import java.util.Map;
 
 public class DatabaseService {
 
+    private static DatabaseService INSTANCE;
+
+    public static DatabaseService getInstance() throws IOException, ClassNotFoundException {
+        if(INSTANCE != null)
+            return INSTANCE;
+        return INSTANCE = new DatabaseService(MetaData.getInstance());
+    }
+
     private File dataDirectory;
     private Map<String, Database> databases;
 
-    public DatabaseService(MetaData metaData) {
+    private DatabaseService(MetaData metaData) {
         this.dataDirectory = Paths.get(metaData.getDataDirectory()).toFile();
         if(!dataDirectory.exists())
             dataDirectory.mkdirs();
@@ -23,6 +31,12 @@ public class DatabaseService {
         createDatabaseDirs(metaData);
     }
 
+
+
+
+    public Database getDatabase(String databaseName) {
+        return databases.get(databaseName);
+    }
 
     public void createDatabase(String databaseName) {
         Database database = new DirectoryDatabase(databaseName, dataDirectory);
@@ -54,11 +68,6 @@ public class DatabaseService {
         }
     }
 
-
-    public Database getDatabase(String databaseName) {
-        return databases.get(databaseName);
-    }
-
     public boolean containsDatabase(String databaseName) {
         return databases.containsKey(databaseName);
     }
@@ -70,13 +79,12 @@ public class DatabaseService {
                 .forEach(name -> databases.put(name, new DirectoryDatabase(name, dataDirectory)));
     }
 
-
     public File getDataDirectory() {
         return dataDirectory;
     }
 
     public QueryHandler getHandler() {
-        return new DatabaseHandler(this, new UUIDIdCreator());
+        return new DatabaseHandler(this);
     }
 
 }

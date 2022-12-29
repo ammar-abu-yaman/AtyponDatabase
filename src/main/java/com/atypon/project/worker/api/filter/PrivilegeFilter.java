@@ -1,6 +1,6 @@
 package com.atypon.project.worker.api.filter;
 
-import com.atypon.project.worker.user.User;
+import com.atypon.project.worker.core.User;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -9,9 +9,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-//@Component
-//@Order(4)
-public class Privilege implements Filter {
+@Component
+@Order(3)
+public class PrivilegeFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
@@ -19,7 +19,7 @@ public class Privilege implements Filter {
         HttpServletResponse resp = (HttpServletResponse) response;
         String url = req.getRequestURI();
 
-        // admin trying to create or delete databases and indexes
+        // user trying to create or delete databases and indexes must be admin
         if(url.startsWith("/database") || url.startsWith("/index")) {
             User user = (User) req.getSession(false).getAttribute("user");
             if(user == null || user.getRole() != User.Role.Admin) {
@@ -28,7 +28,7 @@ public class Privilege implements Filter {
             }
         }
 
-        // viewer trying to modify data
+        // user trying to modify data must be admin or editor
         if(url.startsWith("/document/add") || url.startsWith("/document/delete") || url.startsWith("/document/update")) {
             User user = (User) req.getSession(false).getAttribute("user");
             if(user == null || user.getRole() == User.Role.Viewer) {
@@ -37,6 +37,7 @@ public class Privilege implements Filter {
             }
         }
 
+        // user with viewer access level or higher or a worker node
         chain.doFilter(request, response);
     }
 }

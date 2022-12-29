@@ -74,13 +74,13 @@ public class InternalController {
 
 
     @PostMapping("/_internal/create_database/{database}")
-    public String createDatabase(@PathVariable("database") String databaseName) {
-        return databaseHelper(databaseName, QueryType.CreateDatabase);
+    public String createDatabase(@RequestBody Map<String, Object> schema, @PathVariable("database") String databaseName) {
+        return databaseHelper(databaseName, QueryType.CreateDatabase, schema);
     }
 
     @PostMapping("/_internal/delete_database/{database}")
     public String deleteDatabase(@PathVariable("database") String databaseName) {
-        return databaseHelper(databaseName, QueryType.DeleteDatabase);
+        return databaseHelper(databaseName, QueryType.DeleteDatabase, null);
     }
 
     @PostMapping("/_internal/create_index/{database}/{index}")
@@ -120,13 +120,12 @@ public class InternalController {
         return mapper.valueToTree(nodes).toString();
     }
 
-
-
-    private String databaseHelper(String databaseName, QueryType type) {
+    private String databaseHelper(String databaseName, QueryType type, Map<String, Object> schema) {
         Query request = Query.builder()
                 .originator(Query.Originator.Broadcaster)
                 .queryType(type)
                 .databaseName(databaseName)
+                .payload(mapper.valueToTree(schema))
                 .build();
         manager.getHandlersFactory().getHandler(request).handle(request);
         return "";

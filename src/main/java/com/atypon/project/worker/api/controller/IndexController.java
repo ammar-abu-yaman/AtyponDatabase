@@ -22,7 +22,7 @@ public class IndexController {
                 .indexFieldName(indexFieldName)
                 .build();
         manager.getHandlersFactory().getHandler(request).handle(request);
-        return request.getStatus() + " => " + request.getRequestOutput();
+        return request.getRequestOutput().toString();
     }
 
     @PostMapping("/index/delete/{database}/{index}")

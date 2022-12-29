@@ -5,9 +5,26 @@ import com.atypon.project.worker.cache.CacheEntry;
 import com.atypon.project.worker.cache.CacheService;
 import com.atypon.project.worker.query.Query;
 import com.atypon.project.worker.query.QueryType;
+
+import java.io.IOException;
 import java.util.*;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class CacheHandler extends QueryHandler {
+
+    private static final Logger logger = Logger.getLogger(CacheHandler.class.getName());
+
+    static {
+        try {
+            FileHandler fileHandler = new FileHandler("db/database.log", true);
+            logger.setLevel(Level.WARNING);
+            logger.addHandler(fileHandler);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     CacheService service;
 
@@ -17,28 +34,36 @@ public class CacheHandler extends QueryHandler {
 
     @Override
     public void handle(Query query) {
-        switch (query.getQueryType()) {
-            case FindDocument:
-            case FindDocuments:
-                handleRead(query);
-                return;
-            case CreateDatabase:
-            case DeleteDatabase:
-                handleDatabaseCreation(query);
-                return;
-            case AddDocument:
-            case DeleteDocument:
-            case UpdateDocument:
-                handleWrite(query);
-                return;
-            default:
-                pass(query);
-                return;
+        try {
+            switch (query.getQueryType()) {
+                case FindDocument:
+                case FindDocuments:
+                    handleRead(query);
+                    return;
+                case CreateDatabase:
+                case DeleteDatabase:
+                    handleDatabaseCreation(query);
+                    return;
+                case AddDocument:
+                case DeleteDocument:
+                case UpdateDocument:
+                    handleWrite(query);
+                    return;
+                default:
+                    pass(query);
+                    return;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            query.setStatus(Query.Status.Rejected);
+            query.getRequestOutput().append(e.getMessage());
+            logger.warning(e.getMessage());
         }
+
     }
 
 
-    private void handleRead(Query request) {
+    private void handleRead(Query request)  {
 
         // case where there is no database with the name provided by the request
         if(!service.containsCache(request.getDatabaseName())) {
@@ -65,7 +90,7 @@ public class CacheHandler extends QueryHandler {
         cache.put(new CacheEntry(request), request.getRequestOutput().toString());
     }
 
-    private void handleWrite(Query request) {
+    private void handleWrite(Query request)  {
         pass(request);
 
         if(updateNotNeeded(request))
@@ -78,7 +103,7 @@ public class CacheHandler extends QueryHandler {
         }
     }
 
-    private void handleDatabaseCreation(Query request) {
+    private void handleDatabaseCreation(Query request)  {
         pass(request);
         if(updateNotNeeded(request))
             return;
